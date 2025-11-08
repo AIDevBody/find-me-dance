@@ -157,25 +157,11 @@
   // Base URL of your deployed Google Apps Script Web App (see user instructions)
   const BASE_URL = 'https://script.google.com/macros/s/AKfycbwLZ7yudmpkonocViR2Ai1TRiuW9Q0ho2DsNHABA88sUVXazLOg1rTrnFCNTcknCwjEtQ/exec';
 
-  // Mapping from tag types to the UI type defined in the source sheet.
-  // We normalise the values to the handful of UI widgets implemented
-  // below. For example, 'dropdown-single' becomes 'dropdown' and
-  // 'checkbox-multi' becomes 'checkbox'.
-  const rawUiMap = {
-    "location": "dropdown-single",
-    "dance_type": "checkbox-multi",
-    "event_type": "checkbox-multi",
-    "level": "dropdown-single",
-    "role": "checkbox-multi",
-    "music_speed": "checkbox-multi",
-    "music_source": "checkbox-multi",
-    "language": "checkbox-multi",
-    "venue_type": "checkbox-multi",
-    "registration": "dropdown-single",
-    "price_type": "checkbox-multi",
-    "age_policy": "checkbox-multi",
-    "footwear": "checkbox-multi"
-  };
+  // Every category is rendered as a set of checkboxes. The original
+  // Swing Tag Builder supported different UI widgets (dropdowns,
+  // radios, etc.), but for simplicity and flexibility we ignore
+  // those definitions here. This means visitors can select multiple
+  // options per category. See renderGroup() for details.
 
   // Tags grouped by type. Each entry has at minimum a 'tag' field and
   // one or more 'display_xx' fields for different languages. Only
@@ -295,17 +281,8 @@
     ]
   };
 
-  // Convert the raw ui strings into one of the recognised widget types.
-  function normaliseUiType(raw) {
-    if (!raw) return 'checkbox';
-    const lower = raw.toLowerCase();
-    if (lower.startsWith('dropdown')) return 'dropdown';
-    if (lower.startsWith('radio')) return 'radio';
-    if (lower.startsWith('multi')) return 'multi';
-    if (lower.startsWith('chips')) return 'chips';
-    // anything else starting with 'checkbox' defaults to 'checkbox'
-    return 'checkbox';
-  }
+  // Note: We intentionally omit normalising UI types since every group
+  // is rendered as a multi‑select checkbox list. See renderGroup().
 
   // State holds the currently selected tags for each type. Values are sets
   // to easily add/remove selections.
@@ -358,115 +335,60 @@
   function renderGroup(type) {
     const groupEl = document.createElement('div');
     groupEl.className = 'group';
+    // Create a header row with the type label and select/clear buttons
+    const header = document.createElement('div');
+    header.style.display = 'flex';
+    header.style.justifyContent = 'space-between';
+    header.style.alignItems = 'center';
     const title = document.createElement('h3');
-    // Label the group with its type and the selected UI control
-    const uiRaw = rawUiMap[type];
-    const uiType = normaliseUiType(uiRaw);
-    title.textContent = `${type} (${uiType})`;
-    groupEl.appendChild(title);
+    title.style.marginRight = '8px';
+    title.textContent = type;
+    // Buttons wrapper
+    const btnWrap = document.createElement('div');
+    btnWrap.style.display = 'flex';
+    btnWrap.style.gap = '6px';
+    const selAll = document.createElement('button');
+    selAll.textContent = 'All';
+    selAll.addEventListener('click', () => {
+      // Select all tags for this type
+      state[type] = new Set((tagsByType[type] || []).map(item => item.tag));
+      rerenderAll();
+    });
+    const clrAll = document.createElement('button');
+    clrAll.textContent = 'None';
+    clrAll.addEventListener('click', () => {
+      // Deselect all tags for this type
+      state[type] = new Set();
+      rerenderAll();
+    });
+    btnWrap.appendChild(selAll);
+    btnWrap.appendChild(clrAll);
+    header.appendChild(title);
+    header.appendChild(btnWrap);
+    groupEl.appendChild(header);
+    // Determine language and items
     const lang = document.getElementById('lang').value || languages[0];
     const items = tagsByType[type] || [];
-    // Ensure state set exists
     if (!state[type]) state[type] = new Set();
-    // Build appropriate control based on uiType
-    if (uiType === 'dropdown') {
-      const sel = document.createElement('select');
-      const emptyOpt = document.createElement('option');
-      emptyOpt.value = '';
-      emptyOpt.textContent = '—';
-      sel.appendChild(emptyOpt);
-      items.forEach(item => {
-        const opt = document.createElement('option');
-        opt.value = item.tag;
-        opt.textContent = item[`display_${lang}`] || item.tag;
-        if (state[type].has(item.tag)) opt.selected = true;
-        sel.appendChild(opt);
-      });
-      sel.addEventListener('change', () => {
-        state[type] = new Set();
-        if (sel.value) state[type].add(sel.value);
+    // Render all tags as checkboxes
+    items.forEach(item => {
+      const lab = document.createElement('label');
+      lab.style.display = 'block';
+      const input = document.createElement('input');
+      input.type = 'checkbox';
+      input.value = item.tag;
+      input.checked = state[type].has(item.tag);
+      input.addEventListener('change', () => {
+        if (input.checked) state[type].add(item.tag);
+        else state[type].delete(item.tag);
         updateFeedUrl();
       });
-      groupEl.appendChild(sel);
-    } else if (uiType === 'radio') {
-      items.forEach((item, idx) => {
-        const lab = document.createElement('label');
-        lab.style.display = 'block';
-        const input = document.createElement('input');
-        input.type = 'radio';
-        input.name = `radio-${type}`;
-        input.value = item.tag;
-        input.checked = state[type].has(item.tag);
-        input.addEventListener('change', () => {
-          state[type] = new Set([item.tag]);
-          updateFeedUrl();
-        });
-        lab.appendChild(input);
-        const span = document.createElement('span');
-        span.textContent = ' ' + (item[`display_${lang}`] || item.tag);
-        lab.appendChild(span);
-        groupEl.appendChild(lab);
-      });
-    } else if (uiType === 'checkbox') {
-      items.forEach((item) => {
-        const lab = document.createElement('label');
-        lab.style.display = 'block';
-        const input = document.createElement('input');
-        input.type = 'checkbox';
-        input.value = item.tag;
-        input.checked = state[type].has(item.tag);
-        input.addEventListener('change', () => {
-          if (input.checked) state[type].add(item.tag);
-          else state[type].delete(item.tag);
-          updateFeedUrl();
-        });
-        lab.appendChild(input);
-        const span = document.createElement('span');
-        span.textContent = ' ' + (item[`display_${lang}`] || item.tag);
-        lab.appendChild(span);
-        groupEl.appendChild(lab);
-      });
-    } else if (uiType === 'multi') {
-      const sel = document.createElement('select');
-      sel.multiple = true;
-      sel.size = Math.min(8, Math.max(3, items.length));
-      items.forEach(item => {
-        const opt = document.createElement('option');
-        opt.value = item.tag;
-        opt.textContent = item[`display_${lang}`] || item.tag;
-        if (state[type].has(item.tag)) opt.selected = true;
-        sel.appendChild(opt);
-      });
-      sel.addEventListener('change', () => {
-        const selected = new Set(Array.from(sel.selectedOptions).map(o => o.value));
-        state[type] = selected;
-        updateFeedUrl();
-      });
-      groupEl.appendChild(sel);
-    } else if (uiType === 'chips') {
-      const wrap = document.createElement('div');
-      wrap.className = 'chips';
-      items.forEach(item => {
-        const chip = document.createElement('div');
-        chip.className = 'chip';
-        chip.textContent = item[`display_${lang}`] || item.tag;
-        if (state[type].has(item.tag)) chip.classList.add('active');
-        chip.addEventListener('click', () => {
-          const isActive = chip.classList.toggle('active');
-          if (isActive) state[type].add(item.tag);
-          else state[type].delete(item.tag);
-          updateFeedUrl();
-        });
-        wrap.appendChild(chip);
-      });
-      groupEl.appendChild(wrap);
-    } else {
-      // Unknown UI type; show a message
-      const p = document.createElement('p');
-      p.className = 'muted';
-      p.textContent = `Unknown UI type for ${type}: ${uiRaw}`;
-      groupEl.appendChild(p);
-    }
+      lab.appendChild(input);
+      const span = document.createElement('span');
+      span.textContent = ' ' + (item[`display_${lang}`] || item.tag);
+      lab.appendChild(span);
+      groupEl.appendChild(lab);
+    });
     document.getElementById('groups').appendChild(groupEl);
   }
 
