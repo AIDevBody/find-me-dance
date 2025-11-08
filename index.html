@@ -1,0 +1,519 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Swing Calendar Feed Builder</title>
+  <!--
+    This page lets you compose a tag-based calendar feed for the Swing
+    community. It mirrors the look and feel of the original Swing Tag
+    Builder but instead of outputting a simple list of hashtags, it
+    generates a ready‑to‑use iCalendar (ICS) feed URL. The feed URL
+    points at your deployed Google Apps Script (see the README or your
+    deployment settings) and includes query parameters for every tag
+    you select. Multiple selections within a single category are joined
+    with commas. Subscribe to the resulting link in your favourite
+    calendar client (Google Calendar, Apple Calendar, Outlook, etc.) to
+    automatically receive events that match the selected tags.
+  -->
+  <style>
+    :root {
+      --gap: 12px;
+      --pad: 14px;
+      --radius: 12px;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    }
+    body {
+      margin: 0;
+      padding: 20px;
+      background: #0b0f16;
+      color: #eaf0ff;
+    }
+    a {
+      color: #9bcbff;
+    }
+    header {
+      margin-bottom: 22px;
+    }
+    .card {
+      background: #121827;
+      border: 1px solid #1f2a44;
+      border-radius: var(--radius);
+      padding: var(--pad);
+      margin-bottom: var(--gap);
+    }
+    .row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: var(--gap);
+    }
+    .group {
+      border: 1px solid #233455;
+      border-radius: var(--radius);
+      padding: var(--pad);
+    }
+    .group h3 {
+      margin: 0 0 10px 0;
+      font-size: 16px;
+      font-weight: 600;
+      color: #bcd1ff;
+    }
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .chip {
+      border: 1px solid #2a3f66;
+      padding: 6px 10px;
+      border-radius: 999px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .chip.active {
+      background: #244f92;
+      border-color: #3a6db8;
+    }
+    .controls {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    button, select {
+      background: #1a2540;
+      color: #eaf0ff;
+      border: 1px solid #2a3f66;
+      border-radius: 10px;
+      padding: 8px 10px;
+    }
+    input[type="text"] {
+      width: 100%;
+      background: #0e1527;
+      color: #eaf0ff;
+      border: 1px solid #2a3f66;
+      border-radius: 10px;
+      padding: 10px;
+    }
+    .muted {
+      color: #9fb3d9;
+    }
+    .footer {
+      margin-top: 20px;
+      font-size: 12px;
+    }
+    details {
+      margin-top: 8px;
+    }
+    summary {
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🎷 Swing Calendar Feed Builder</h1>
+    <p class="muted">
+      Select the tags that describe your interests and we'll build a
+      personalised calendar feed. Subscribe to the generated URL in
+      your calendar client to stay up to date with events that match
+      your selections.
+    </p>
+  </header>
+
+  <section class="card">
+    <div class="controls">
+      <label>Language:&nbsp;
+        <select id="lang"></select>
+      </label>
+      <button id="copyLink">Copy link</button>
+      <button id="clearAll">Clear all</button>
+    </div>
+    <details>
+      <summary>Feed URL</summary>
+      <div style="margin-top:8px;">
+        <input id="feedUrl" type="text" readonly />
+      </div>
+    </details>
+    <details>
+      <summary>How to subscribe</summary>
+      <div style="margin-top:8px;" class="muted">
+        <p>Copy the Feed URL above and paste it into your calendar application's
+        “subscribe to calendar” or “add by URL” dialog. Most calendar
+        clients support the iCalendar format.</p>
+      </div>
+    </details>
+  </section>
+
+  <section id="groups" class="row"></section>
+
+  <div class="footer muted">
+    <p>
+      This page uses a locally stored list of tags to build the feed URL. It
+      does not contact any external servers until you subscribe to the URL.
+    </p>
+  </div>
+
+  <script>
+  // Base URL of your deployed Google Apps Script Web App (see user instructions)
+  const BASE_URL = 'https://script.google.com/macros/s/AKfycbwLZ7yudmpkonocViR2Ai1TRiuW9Q0ho2DsNHABA88sUVXazLOg1rTrnFCNTcknCwjEtQ/exec';
+
+  // Mapping from tag types to the UI type defined in the source sheet.
+  // We normalise the values to the handful of UI widgets implemented
+  // below. For example, 'dropdown-single' becomes 'dropdown' and
+  // 'checkbox-multi' becomes 'checkbox'.
+  const rawUiMap = {
+    "location": "dropdown-single",
+    "dance_type": "checkbox-multi",
+    "event_type": "checkbox-multi",
+    "level": "dropdown-single",
+    "role": "checkbox-multi",
+    "music_speed": "checkbox-multi",
+    "music_source": "checkbox-multi",
+    "language": "checkbox-multi",
+    "venue_type": "checkbox-multi",
+    "registration": "dropdown-single",
+    "price_type": "checkbox-multi",
+    "age_policy": "checkbox-multi",
+    "footwear": "checkbox-multi"
+  };
+
+  // Tags grouped by type. Each entry has at minimum a 'tag' field and
+  // one or more 'display_xx' fields for different languages. Only
+  // active tags are included.
+  const tagsByType = {
+    "footwear": [
+      { "tag": "sneakers-ok", "display_de": "Sneaker erlaubt", "display_en": "Sneakers OK" },
+      { "tag": "leather-soles", "display_de": "Ledersohlen", "display_en": "Leather Soles" },
+      { "tag": "no-heels", "display_de": "Keine Absätze", "display_en": "No Heels" },
+      { "tag": "street-shoes-ok", "display_de": "Straßenschuhe erlaubt", "display_en": "Street Shoes OK" }
+    ],
+    "event_type": [
+      { "tag": "class", "display_de": "Kursstunde", "display_en": "Class" },
+      { "tag": "course", "display_de": "Kurs (Serie)", "display_en": "Course" },
+      { "tag": "workshop", "display_de": "Workshop", "display_en": "Workshop" },
+      { "tag": "intensive", "display_de": "Intensivkurs", "display_en": "Intensive" },
+      { "tag": "taster", "display_de": "Schnupperkurs", "display_en": "Taster" },
+      { "tag": "practice", "display_de": "Übungsabend", "display_en": "Practice" },
+      { "tag": "social", "display_de": "Social Dance", "display_en": "Social" },
+      { "tag": "party", "display_de": "Party", "display_en": "Party" },
+      { "tag": "live-music", "display_de": "Livemusik", "display_en": "Live Music" },
+      { "tag": "band-night", "display_de": "Band-Nacht", "display_en": "Band Night" },
+      { "tag": "festival", "display_de": "Festival", "display_en": "Festival" },
+      { "tag": "exchange", "display_de": "Exchange", "display_en": "Exchange" },
+      { "tag": "competition", "display_de": "Wettbewerb", "display_en": "Competition" },
+      { "tag": "performance", "display_de": "Performance", "display_en": "Performance" },
+      { "tag": "lecture", "display_de": "Vortrag", "display_en": "Lecture" }
+    ],
+    "music_speed": [
+      { "tag": "slow", "display_de": "Langsam", "display_en": "Slow" },
+      { "tag": "medium", "display_de": "Mittel", "display_en": "Medium" },
+      { "tag": "fast", "display_de": "Schnell", "display_en": "Fast" },
+      { "tag": "very-fast", "display_de": "Sehr schnell", "display_en": "Very Fast" },
+      { "tag": "bpm-80-110", "display_de": "BPM 80–110", "display_en": "BPM 80–110" },
+      { "tag": "bpm-110-140", "display_de": "BPM 110–140", "display_en": "BPM 110–140" },
+      { "tag": "bpm-140-170", "display_de": "BPM 140–170", "display_en": "BPM 140–170" },
+      { "tag": "bpm-170-plus", "display_de": "BPM 170+", "display_en": "BPM 170+" }
+    ],
+    "role": [
+      { "tag": "leader", "display_de": "Leader", "display_en": "Leader" },
+      { "tag": "follower", "display_de": "Follower", "display_en": "Follower" },
+      { "tag": "switch", "display_de": "Switch", "display_en": "Switch" },
+      { "tag": "forced-switch", "display_de": "Switch (vorgegeben)", "display_en": "Forced Switch" }
+    ],
+    "price_type": [
+      { "tag": "free", "display_de": "Kostenlos", "display_en": "Free" },
+      { "tag": "donation", "display_de": "Spende", "display_en": "Donation" },
+      { "tag": "paid", "display_de": "Beitrag", "display_en": "Paid" },
+      { "tag": "sliding-scale", "display_de": "Gleitende Skala", "display_en": "Sliding Scale" }
+    ],
+    "level": [
+      { "tag": "beginner", "display_de": "Anfänger", "display_en": "Beginner" },
+      { "tag": "beginner-plus", "display_de": "Anfänger+", "display_en": "Beginner+" },
+      { "tag": "improver", "display_de": "Improver", "display_en": "Improver" },
+      { "tag": "intermediate", "display_de": "Mittelstufe", "display_en": "Intermediate" },
+      { "tag": "intermediate-plus", "display_de": "Mittelstufe+", "display_en": "Intermediate+" },
+      { "tag": "advanced", "display_de": "Fortgeschritten", "display_en": "Advanced" },
+      { "tag": "all-levels", "display_de": "Alle Levels", "display_en": "All Levels" },
+      { "tag": "open-level", "display_de": "Offenes Level", "display_en": "Open Level" }
+    ],
+    "dance_type": [
+      { "tag": "lindy-hop", "display_de": "Lindy Hop", "display_en": "Lindy Hop" },
+      { "tag": "balboa", "display_de": "Balboa", "display_en": "Balboa" },
+      { "tag": "bal-swing", "display_de": "Bal-Swing", "display_en": "Bal Swing" },
+      { "tag": "collegiate-shag", "display_de": "Collegiate Shag", "display_en": "Collegiate Shag" },
+      { "tag": "st-louis-shag", "display_de": "St. Louis Shag", "display_en": "St Louis Shag" },
+      { "tag": "charleston", "display_de": "Charleston", "display_en": "Charleston" },
+      { "tag": "solo-jazz", "display_de": "Solo Jazz", "display_en": "Solo Jazz" },
+      { "tag": "jazz-roots", "display_de": "Jazz Roots", "display_en": "Jazz Roots" },
+      { "tag": "east-coast-swing", "display_de": "East Coast Swing", "display_en": "East Coast Swing" },
+      { "tag": "west-coast-swing", "display_de": "West Coast Swing", "display_en": "West Coast Swing" },
+      { "tag": "boogie-woogie", "display_de": "Boogie Woogie", "display_en": "Boogie Woogie" },
+      { "tag": "blues", "display_de": "Blues", "display_en": "Blues" },
+      { "tag": "shag", "display_de": "Shag", "display_en": "Shag" },
+      { "tag": "jitterbug", "display_de": "Jitterbug", "display_en": "Jitterbug" },
+      { "tag": "rock-n-roll", "display_de": "Rock ’n’ Roll", "display_en": "Rock ’n’ Roll" }
+    ],
+    "language": [
+      { "tag": "german", "display_de": "Deutsch", "display_en": "German" },
+      { "tag": "english", "display_de": "Englisch", "display_en": "English" },
+      { "tag": "bilingual", "display_de": "Zweisprachig", "display_en": "Bilingual" },
+      { "tag": "all-welcome", "display_de": "Alle willkommen", "display_en": "All Welcome" }
+    ],
+    "venue_type": [
+      { "tag": "studio", "display_de": "Studio", "display_en": "Studio" },
+      { "tag": "bar", "display_de": "Bar", "display_en": "Bar" },
+      { "tag": "club", "display_de": "Club", "display_en": "Club" },
+      { "tag": "outdoors", "display_de": "Draußen", "display_en": "Outdoors" },
+      { "tag": "community-center", "display_de": "Gemeindezentrum", "display_en": "Community Center" },
+      { "tag": "theater", "display_de": "Theater", "display_en": "Theater" },
+      { "tag": "university", "display_de": "Universität", "display_en": "University" },
+      { "tag": "others", "display_de": "Sonstiges", "display_en": "Others" }
+    ],
+    "age_policy": [
+      { "tag": "all-ages", "display_de": "Alle Altersgruppen", "display_en": "All Ages" },
+      { "tag": "children-only", "display_de": "Nur Kinder", "display_en": "Children Only" },
+      { "tag": "16-plus", "display_de": "Ab 16", "display_en": "16+" },
+      { "tag": "18-plus", "display_de": "Ab 18", "display_en": "18+" },
+      { "tag": "family-friendly", "display_de": "Familienfreundlich", "display_en": "Family Friendly" }
+    ],
+    "location": [
+      { "tag": "weimar", "display_de": "Weimar", "display_en": "Weimar" },
+      { "tag": "erfurt", "display_de": "Erfurt", "display_en": "Erfurt" },
+      { "tag": "jena", "display_de": "Jena", "display_en": "Jena" }
+    ],
+    "music_source": [
+      { "tag": "live", "display_de": "Live", "display_en": "Live" },
+      { "tag": "dj", "display_de": "DJ", "display_en": "Dj" },
+      { "tag": "live-and-dj", "display_de": "Live & DJ", "display_en": "Live & DJ" }
+    ],
+    "registration": [
+      { "tag": "drop-in", "display_de": "Ohne Anmeldung", "display_en": "Drop-in" },
+      { "tag": "registration-required", "display_de": "Anmeldung erforderlich", "display_en": "Registration Required" },
+      { "tag": "partner-required", "display_de": "Partner*in erforderlich", "display_en": "Partner Required" },
+      { "tag": "partner-optional", "display_de": "Partner*in optional", "display_en": "Partner Optional" },
+      { "tag": "membership-only", "display_de": "Nur Mitglieder", "display_en": "Membership Only" }
+    ]
+  };
+
+  // Convert the raw ui strings into one of the recognised widget types.
+  function normaliseUiType(raw) {
+    if (!raw) return 'checkbox';
+    const lower = raw.toLowerCase();
+    if (lower.startsWith('dropdown')) return 'dropdown';
+    if (lower.startsWith('radio')) return 'radio';
+    if (lower.startsWith('multi')) return 'multi';
+    if (lower.startsWith('chips')) return 'chips';
+    // anything else starting with 'checkbox' defaults to 'checkbox'
+    return 'checkbox';
+  }
+
+  // State holds the currently selected tags for each type. Values are sets
+  // to easily add/remove selections.
+  const state = {};
+
+  // Determine available languages by inspecting display_ prefixes.
+  const languages = (() => {
+    const langs = new Set();
+    for (const type in tagsByType) {
+      tagsByType[type].forEach(item => {
+        Object.keys(item).forEach(key => {
+          const m = key.match(/^display_(.+)$/);
+          if (m) langs.add(m[1]);
+        });
+      });
+    }
+    return Array.from(langs);
+  })();
+
+  // Populate language selector
+  function initLanguages() {
+    const sel = document.getElementById('lang');
+    languages.forEach(lang => {
+      const opt = document.createElement('option');
+      opt.value = lang;
+      opt.textContent = lang;
+      sel.appendChild(opt);
+    });
+    // Try to default to browser language if available
+    const browserLang = (navigator.language || 'en').slice(0, 2);
+    if (languages.includes(browserLang)) sel.value = browserLang;
+    else if (languages.includes('en')) sel.value = 'en';
+    sel.addEventListener('change', () => rerenderAll());
+  }
+
+  // Build the UI groups based on tagsByType and ui definitions. This is
+  // called whenever the language changes or the UI needs to be
+  // refreshed. It clears any existing groups and reconstructs the
+  // controls.
+  function rerenderAll() {
+    const container = document.getElementById('groups');
+    container.innerHTML = '';
+    for (const type of Object.keys(tagsByType).sort()) {
+      renderGroup(type);
+    }
+    updateFeedUrl();
+  }
+
+  // Render a single group of tags.
+  function renderGroup(type) {
+    const groupEl = document.createElement('div');
+    groupEl.className = 'group';
+    const title = document.createElement('h3');
+    // Label the group with its type and the selected UI control
+    const uiRaw = rawUiMap[type];
+    const uiType = normaliseUiType(uiRaw);
+    title.textContent = `${type} (${uiType})`;
+    groupEl.appendChild(title);
+    const lang = document.getElementById('lang').value || languages[0];
+    const items = tagsByType[type] || [];
+    // Ensure state set exists
+    if (!state[type]) state[type] = new Set();
+    // Build appropriate control based on uiType
+    if (uiType === 'dropdown') {
+      const sel = document.createElement('select');
+      const emptyOpt = document.createElement('option');
+      emptyOpt.value = '';
+      emptyOpt.textContent = '—';
+      sel.appendChild(emptyOpt);
+      items.forEach(item => {
+        const opt = document.createElement('option');
+        opt.value = item.tag;
+        opt.textContent = item[`display_${lang}`] || item.tag;
+        if (state[type].has(item.tag)) opt.selected = true;
+        sel.appendChild(opt);
+      });
+      sel.addEventListener('change', () => {
+        state[type] = new Set();
+        if (sel.value) state[type].add(sel.value);
+        updateFeedUrl();
+      });
+      groupEl.appendChild(sel);
+    } else if (uiType === 'radio') {
+      items.forEach((item, idx) => {
+        const lab = document.createElement('label');
+        lab.style.display = 'block';
+        const input = document.createElement('input');
+        input.type = 'radio';
+        input.name = `radio-${type}`;
+        input.value = item.tag;
+        input.checked = state[type].has(item.tag);
+        input.addEventListener('change', () => {
+          state[type] = new Set([item.tag]);
+          updateFeedUrl();
+        });
+        lab.appendChild(input);
+        const span = document.createElement('span');
+        span.textContent = ' ' + (item[`display_${lang}`] || item.tag);
+        lab.appendChild(span);
+        groupEl.appendChild(lab);
+      });
+    } else if (uiType === 'checkbox') {
+      items.forEach((item) => {
+        const lab = document.createElement('label');
+        lab.style.display = 'block';
+        const input = document.createElement('input');
+        input.type = 'checkbox';
+        input.value = item.tag;
+        input.checked = state[type].has(item.tag);
+        input.addEventListener('change', () => {
+          if (input.checked) state[type].add(item.tag);
+          else state[type].delete(item.tag);
+          updateFeedUrl();
+        });
+        lab.appendChild(input);
+        const span = document.createElement('span');
+        span.textContent = ' ' + (item[`display_${lang}`] || item.tag);
+        lab.appendChild(span);
+        groupEl.appendChild(lab);
+      });
+    } else if (uiType === 'multi') {
+      const sel = document.createElement('select');
+      sel.multiple = true;
+      sel.size = Math.min(8, Math.max(3, items.length));
+      items.forEach(item => {
+        const opt = document.createElement('option');
+        opt.value = item.tag;
+        opt.textContent = item[`display_${lang}`] || item.tag;
+        if (state[type].has(item.tag)) opt.selected = true;
+        sel.appendChild(opt);
+      });
+      sel.addEventListener('change', () => {
+        const selected = new Set(Array.from(sel.selectedOptions).map(o => o.value));
+        state[type] = selected;
+        updateFeedUrl();
+      });
+      groupEl.appendChild(sel);
+    } else if (uiType === 'chips') {
+      const wrap = document.createElement('div');
+      wrap.className = 'chips';
+      items.forEach(item => {
+        const chip = document.createElement('div');
+        chip.className = 'chip';
+        chip.textContent = item[`display_${lang}`] || item.tag;
+        if (state[type].has(item.tag)) chip.classList.add('active');
+        chip.addEventListener('click', () => {
+          const isActive = chip.classList.toggle('active');
+          if (isActive) state[type].add(item.tag);
+          else state[type].delete(item.tag);
+          updateFeedUrl();
+        });
+        wrap.appendChild(chip);
+      });
+      groupEl.appendChild(wrap);
+    } else {
+      // Unknown UI type; show a message
+      const p = document.createElement('p');
+      p.className = 'muted';
+      p.textContent = `Unknown UI type for ${type}: ${uiRaw}`;
+      groupEl.appendChild(p);
+    }
+    document.getElementById('groups').appendChild(groupEl);
+  }
+
+  // Build query string from state and update the feedUrl input
+  function updateFeedUrl() {
+    const parts = [];
+    for (const type of Object.keys(state)) {
+      const values = Array.from(state[type]);
+      if (values.length) {
+        const encoded = values.map(v => encodeURIComponent(v)).join(',');
+        parts.push(`${encodeURIComponent(type)}=${encoded}`);
+      }
+    }
+    const query = parts.join('&');
+    const url = parts.length ? `${BASE_URL}?${query}` : BASE_URL;
+    document.getElementById('feedUrl').value = url;
+  }
+
+  // Copy the current feed URL to the clipboard
+  async function copyLinkToClipboard() {
+    const el = document.getElementById('feedUrl');
+    el.select();
+    el.setSelectionRange(0, 99999);
+    try {
+      await navigator.clipboard.writeText(el.value);
+    } catch (err) {
+      // fallback: try to exec command
+      document.execCommand('copy');
+    }
+  }
+
+  // Clear all selections and rebuild UI
+  function clearAllSelections() {
+    for (const type in state) {
+      state[type].clear();
+    }
+    rerenderAll();
+    document.getElementById('feedUrl').value = BASE_URL;
+  }
+
+  // Attach control handlers
+  document.getElementById('copyLink').addEventListener('click', copyLinkToClipboard);
+  document.getElementById('clearAll').addEventListener('click', clearAllSelections);
+
+  // Initialise everything on page load
+  initLanguages();
+  rerenderAll();
+  </script>
+</body>
+</html>
