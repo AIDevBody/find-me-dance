@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Calendar Feed Subscription Guide</title>
+  <!--
+    This page provides step‑by‑step instructions for subscribing to your
+    custom calendar feed in both Google Calendar and Apple Calendar.  It
+    reuses the same look and feel as the feed builder, keeping the
+    content centred on wide screens.  The texts and links are
+    translated between English and German, and the appropriate
+    resources (official documentation, help articles, icons and
+    videos) are loaded from the shared link JSON file.  You can switch
+    languages at any time using the drop‑down menu.
+  -->
+  <style>
+    :root {
+      --gap: 12px;
+      --pad: 14px;
+      --radius: 12px;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    }
+    body {
+      margin: 0;
+      padding: 20px;
+      background: #0b0f16;
+      color: #eaf0ff;
+    }
+    a { color: #9bcbff; }
+    .container {
+      max-width: 960px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    header {
+      margin-bottom: 22px;
+    }
+    .card {
+      background: #121827;
+      border: 1px solid #1f2a44;
+      border-radius: var(--radius);
+      padding: var(--pad);
+      margin-bottom: var(--gap);
+    }
+    .controls {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: var(--gap);
+    }
+    button,
+    select {
+      background: #1a2540;
+      color: #eaf0ff;
+      border: 1px solid #2a3f66;
+      border-radius: 10px;
+      padding: 8px 10px;
+    }
+    .muted { color: #9fb3d9; }
+    section h2 {
+      margin-top: 0;
+      font-size: 18px;
+      font-weight: 600;
+      color: #bcd1ff;
+    }
+    section h3 {
+      margin-top: 1em;
+      font-size: 16px;
+      font-weight: 600;
+      color: #9fb3d9;
+    }
+    ol {
+      margin-left: 1.5em;
+    }
+    iframe {
+      width: 100%;
+      max-width: 560px;
+      height: 315px;
+      border: 0;
+      border-radius: 8px;
+      display: block;
+      margin-top: 8px;
+    }
+    img.icon {
+      width: 48px;
+      height: 48px;
+      vertical-align: middle;
+      margin-right: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1 id="title">Subscription Guide</h1>
+      <p id="intro" class="muted">Follow these instructions to subscribe to your custom feed.</p>
+    </header>
+    <div class="controls">
+      <label id="langLabel"></label>
+      <select id="lang"></select>
+    </div>
+    <section id="google" class="card">
+      <h2 id="googleHeading">Google Calendar</h2>
+      <div>
+        <img id="googleIcon" class="icon" src="" alt="Google Calendar icon" />
+      </div>
+      <ol id="googleSteps"></ol>
+      <p><strong><a id="googleDoc" href="#" target="_blank"></a></strong></p>
+      <p><a id="googleNotifyDoc" href="#" target="_blank"></a></p>
+      <h3 id="videoGoogleTitle"></h3>
+      <iframe id="googleVideo" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+    </section>
+    <section id="apple" class="card">
+      <h2 id="appleHeading">Apple Devices</h2>
+      <div>
+        <img id="appleIcon" class="icon" src="" alt="Apple Calendar icon" />
+      </div>
+      <h3 id="appleIosSubHeading">iPhone &amp; iPad</h3>
+      <ol id="appleIosSteps"></ol>
+      <h3 id="appleMacSubHeading">Mac</h3>
+      <ol id="appleMacSteps"></ol>
+      <p><strong><a id="appleDoc" href="#" target="_blank"></a></strong></p>
+      <p><a id="appleAutoDoc" href="#" target="_blank"></a></p>
+      <h3 id="videoAppleTitle"></h3>
+      <iframe id="appleVideo" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+    </section>
+    <footer class="muted">
+      <p id="footerText"></p>
+    </footer>
+  </div>
+  <script>
+  // UI translations for English and German.  Each key corresponds to
+  // headings, step lists, link labels and other static text.  If you
+  // wish to support additional languages, add another property here.
+  const uiStrings = {
+    en: {
+      title: 'How to subscribe to your feed',
+      intro: 'Follow these steps to add your custom calendar feed to Google Calendar and Apple devices. You can also adjust the calendar name, colour and notification preferences afterwards.',
+      language: 'Language:',
+      googleHeading: 'Google Calendar',
+      googleSteps: [
+        'Open Google Calendar on your computer at calendar.google.com.',
+        'On the left, next to “Other calendars,” click <em>Add other calendars</em> › <em>From URL</em>.',
+        'Paste the feed URL you generated in the feed builder and click <em>Add calendar</em>.',
+        'To change the calendar name, colour or notification settings, hover over the calendar in the list, click the three‑dot menu and choose <em>Settings</em>.'
+      ],
+      googleDoc: 'Official Google help: Use a link to add a public calendar',
+      googleNotifyDoc: 'Google help: Modify notifications',
+      videoGoogleTitle: 'Video: Subscribing via URL in Google Calendar',
+      appleHeading: 'Apple devices',
+      appleIosSubHeading: 'iPhone & iPad',
+      appleIosSteps: [
+        'On your iPhone or iPad, open the Calendar app.',
+        'Tap <em>Calendars</em> at the bottom of the screen, then tap <em>Add Calendar</em> › <em>Add Subscription Calendar</em>.',
+        'Enter the feed URL and tap <em>Find</em>.',
+        'Enter a name for the calendar and choose a colour. Make sure the account is set to iCloud to sync across devices.',
+        'Tap <em>Done</em>.'
+      ],
+      appleMacSubHeading: 'Mac',
+      appleMacSteps: [
+        'On your Mac, open the Calendar app.',
+        'Choose <em>File</em> › <em>New Calendar Subscription</em>.',
+        'Paste the feed URL and click <em>Subscribe</em>.',
+        'Enter a name for the calendar and choose a colour.',
+        'Use the <em>Location</em> pop‑up menu to select your iCloud account so the calendar syncs to your other devices.',
+        'Choose how often to refresh the calendar and whether to ignore alerts.',
+        'Click <em>OK</em>.'
+      ],
+      appleDoc: 'Official Apple help: Add calendar subscriptions in iCloud',
+      appleAutoDoc: 'Extra: Set auto‑refresh on Mac',
+      videoAppleTitle: 'Video: Adding a subscription calendar on Apple devices',
+      footer: 'These instructions link to official help articles and videos for more details.'
+    },
+    de: {
+      title: 'Anleitung zum Abonnieren',
+      intro: 'Befolge diese Schritte, um deinen individuellen Kalender‑Feed zu Google Kalender und Apple‑Geräten hinzuzufügen. Du kannst anschließend Name, Farbe und Benachrichtigungen ändern.',
+      language: 'Sprache:',
+      googleHeading: 'Google Kalender',
+      googleSteps: [
+        'Öffne Google Kalender im Browser auf deinem Computer unter calendar.google.com.',
+        'Klicke links neben „Weitere Kalender“ auf <em>Weitere Kalender hinzufügen</em> › <em>Per URL</em>.',
+        'Füge die im Feed‑Generator erzeugte URL ein und klicke auf <em>Kalender hinzufügen</em>.',
+        'Um Name, Farbe oder Benachrichtigungen zu ändern, bewege den Mauszeiger über den Kalender in der Liste, klicke auf das Drei‑Punkte‑Menü und wähle <em>Einstellungen</em>.'
+      ],
+      googleDoc: 'Offizielle Google‑Hilfe: Öffentlichen Kalender per Link abonnieren',
+      googleNotifyDoc: 'Google‑Hilfe: Benachrichtigungseinstellungen ändern',
+      videoGoogleTitle: 'Video: Per URL in Google Kalender abonnieren',
+      appleHeading: 'Apple Geräte',
+      appleIosSubHeading: 'iPhone & iPad',
+      appleIosSteps: [
+        'Öffne auf deinem iPhone oder iPad die Kalender‑App.',
+        'Tippe unten auf <em>Kalender</em> und dann auf <em>Kalender hinzufügen</em> › <em>Abonnierter Kalender</em>.',
+        'Gib die Feed‑URL ein und tippe auf <em>Suchen</em>.',
+        'Gib einen Namen ein und wähle eine Farbe. Stelle sicher, dass als Account „iCloud“ eingestellt ist, damit der Kalender auf all deinen Geräten synchronisiert wird.',
+        'Tippe auf <em>Fertig</em>.'
+      ],
+      appleMacSubHeading: 'Mac',
+      appleMacSteps: [
+        'Öffne auf deinem Mac die Kalender‑App.',
+        'Wähle <em>Ablage</em> › <em>Neues Kalenderabo</em>.',
+        'Füge die Feed‑URL ein und klicke auf <em>Abonnieren</em>.',
+        'Vergib einen Namen und wähle eine Farbe.',
+        'Wähle über das Pop‑up „Ort“ den Account „iCloud“, damit der Kalender auf all deinen Geräten verfügbar ist.',
+        'Wähle aus, wie häufig der Kalender aktualisiert werden soll, und ob Warnungen ignoriert werden sollen.',
+        'Klicke auf <em>OK</em>.'
+      ],
+      appleDoc: 'Offizielle Apple‑Hilfe: Kalenderabonnements zu iCloud hinzufügen',
+      appleAutoDoc: 'Extra: Aktualisierungsintervall auf dem Mac festlegen',
+      videoAppleTitle: 'Video: Abo‑Kalender auf Apple‑Geräten hinzufügen',
+      footer: 'Diese Anleitung verlinkt auf offizielle Hilfeartikel und Videos für weitere Details.'
+    }
+  };
+
+  // Global object to hold the links (docs, videos, icons).  Loaded from
+  // resources/local/de/link.json on page load.  The keys include
+  // google_doc_en, google_doc_de, google_notifications_doc_en,
+  // google_notifications_doc_de, apple_doc_en, apple_doc_de,
+  // apple_autorefresh_doc, google_calendar_video, apple_calendar_video,
+  // google_icon, apple_icon.
+  let linkData = {};
+
+  async function fetchLinks() {
+    try {
+      const res = await fetch('../resources/local/de/link.json');
+      if (!res.ok) throw new Error('Failed to load link data');
+      linkData = await res.json();
+    } catch (e) {
+      console.error(e);
+      linkData = {};
+    }
+  }
+
+  // Initialise the language selector.  Options are derived from the
+  // keys of uiStrings.  When the user selects a language, the page
+  // content is updated accordingly.
+  function initLangOptions() {
+    const sel = document.getElementById('lang');
+    sel.innerHTML = '';
+    Object.keys(uiStrings).forEach(code => {
+      const opt = document.createElement('option');
+      opt.value = code;
+      opt.textContent = code.toUpperCase();
+      sel.appendChild(opt);
+    });
+    sel.addEventListener('change', updatePage);
+    // Label text
+    const lbl = document.getElementById('langLabel');
+    lbl.appendChild(document.createTextNode(uiStrings.en.language + ' '));
+    lbl.appendChild(sel);
+  }
+
+  // Build the list elements based on the current language.
+  function updatePage() {
+    const lang = document.getElementById('lang').value || 'en';
+    const strings = uiStrings[lang] || uiStrings.en;
+    // Update labels and headings
+    document.getElementById('title').textContent = strings.title;
+    document.getElementById('intro').textContent = strings.intro;
+    // Update language label
+    const lbl = document.getElementById('langLabel');
+    if (lbl) {
+      // Remove all child nodes and rebuild
+      lbl.innerHTML = '';
+      lbl.appendChild(document.createTextNode(strings.language + ' '));
+    }
+    // Reattach the select element after clearing label contents
+    const sel = document.getElementById('lang');
+    if (sel && lbl && !lbl.contains(sel)) lbl.appendChild(sel);
+    // Google section
+    document.getElementById('googleHeading').textContent = strings.googleHeading;
+    // Set icon src using the linkData
+    if (linkData.google_icon) {
+      document.getElementById('googleIcon').src = linkData.google_icon;
+    }
+    // Build steps list
+    const gSteps = document.getElementById('googleSteps');
+    gSteps.innerHTML = '';
+    strings.googleSteps.forEach(step => {
+      const li = document.createElement('li');
+      li.innerHTML = step;
+      gSteps.appendChild(li);
+    });
+    // Documentation links
+    const googleDocLink = document.getElementById('googleDoc');
+    googleDocLink.textContent = strings.googleDoc;
+    googleDocLink.href = (lang === 'de' ? linkData.google_doc_de : linkData.google_doc_en) || '#';
+    const googleNotifyLink = document.getElementById('googleNotifyDoc');
+    googleNotifyLink.textContent = strings.googleNotifyDoc;
+    googleNotifyLink.href = (lang === 'de' ? linkData.google_notifications_doc_de : linkData.google_notifications_doc_en) || '#';
+    // Video
+    document.getElementById('videoGoogleTitle').textContent = strings.videoGoogleTitle;
+    const gVideo = document.getElementById('googleVideo');
+    if (linkData.google_calendar_video) {
+      gVideo.src = linkData.google_calendar_video;
+    }
+    // Apple section
+    document.getElementById('appleHeading').textContent = strings.appleHeading;
+    if (linkData.apple_icon) {
+      document.getElementById('appleIcon').src = linkData.apple_icon;
+    }
+    // iOS steps
+    document.getElementById('appleIosSubHeading').textContent = strings.appleIosSubHeading;
+    const iosList = document.getElementById('appleIosSteps');
+    iosList.innerHTML = '';
+    strings.appleIosSteps.forEach(step => {
+      const li = document.createElement('li');
+      li.innerHTML = step;
+      iosList.appendChild(li);
+    });
+    // Mac steps
+    document.getElementById('appleMacSubHeading').textContent = strings.appleMacSubHeading;
+    const macList = document.getElementById('appleMacSteps');
+    macList.innerHTML = '';
+    strings.appleMacSteps.forEach(step => {
+      const li = document.createElement('li');
+      li.innerHTML = step;
+      macList.appendChild(li);
+    });
+    // Apple docs
+    const appleDocLink = document.getElementById('appleDoc');
+    appleDocLink.textContent = strings.appleDoc;
+    appleDocLink.href = (lang === 'de' ? linkData.apple_doc_de : linkData.apple_doc_en) || '#';
+    const appleAutoLink = document.getElementById('appleAutoDoc');
+    appleAutoLink.textContent = strings.appleAutoDoc;
+    appleAutoLink.href = linkData.apple_autorefresh_doc || '#';
+    // Apple video
+    document.getElementById('videoAppleTitle').textContent = strings.videoAppleTitle;
+    const aVideo = document.getElementById('appleVideo');
+    if (linkData.apple_calendar_video) {
+      aVideo.src = linkData.apple_calendar_video;
+    }
+    // Footer
+    document.getElementById('footerText').textContent = strings.footer;
+  }
+
+  // On page load, fetch the link data and initialise the language
+  // selector.  Once the links are loaded, populate the page with
+  // default (English) strings.
+  document.addEventListener('DOMContentLoaded', async () => {
+    await fetchLinks();
+    initLangOptions();
+    // Set default language to browser language if available
+    const browserLang = navigator.language ? navigator.language.slice(0, 2).toLowerCase() : 'en';
+    const sel = document.getElementById('lang');
+    if (uiStrings[browserLang]) sel.value = browserLang;
+    updatePage();
+  });
+  </script>
+</body>
+</html>

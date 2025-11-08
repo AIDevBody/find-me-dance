@@ -20,4 +20,27 @@
   "create_event_button": "Event erstellen",
   "clear_selections_button": "Auswahl löschen",
   "select_placeholder": "— auswählen —"
+  ,
+  /* Additional keys for the calendar feed builder and instructions page */
+  "feed_title": "Swing Kalender-Feed-Generator",
+  "feed_header": "Swing Kalender-Feed-Generator",
+  "feed_intro": "Wähle die Tags aus, die deine Interessen beschreiben. Wir erstellen einen personalisierten Kalender-Feed. Abonniere die erzeugte URL in deiner Kalender-App, um über passende Veranstaltungen auf dem Laufenden zu bleiben.",
+  "copy_link_button": "Link kopieren",
+  "clear_all_button": "Alles löschen",
+  "all_button": "Alle",
+  "none_button": "Keine",
+  "feed_url_summary": "Feed-URL",
+  "how_to_subscribe_summary": "So abonnieren",
+  "how_to_subscribe_text": "Kopiere die oben angezeigte Feed-URL und füge sie in das Dialogfeld „Per URL abonnieren“ deiner Kalender‑App ein. Die meisten Kalender unterstützen das iCalendar‑Format.",
+  "footer_text": "Diese Seite nutzt eine lokal gespeicherte Liste von Tags, um die Feed-URL zu erstellen. Es werden keine externen Server kontaktiert, bis du die URL abonnierst.",
+  "instructions_title": "Anleitung zum Abonnieren",
+  "instructions_intro": "Auf dieser Seite erfährst du, wie du deinen Kalender‑Feed zu Google und Apple Kalendern hinzufügen und Einstellungen wie Name, Benachrichtigungen und Aktualisierungshäufigkeit anpassen kannst.",
+  "google_heading": "Google Kalender",
+  "apple_heading": "Apple Geräte",
+  "video_google_title": "Video: Kalender in Google Kalender abonnieren",
+  "video_apple_title": "Video: Abonnierten Kalender auf iPhone/iPad hinzufügen",
+  "doc_google": "Offizielle Google‑Hilfe: Öffentliche Kalender per Link abonnieren",
+  "doc_notifications": "Google‑Hilfe: Benachrichtigungseinstellungen anpassen",
+  "doc_apple": "Offizielle Apple‑Hilfe: Kalenderabonnements zu iCloud hinzufügen",
+  "doc_autorefresh": "Zusätzliche Hinweise: Aktualisierungshäufigkeit für macOS festlegen"
 }

@@ -23,6 +23,12 @@
       --radius: 12px;
       font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
     }
+    /* Constrain the width of the content on large screens */
+    .container {
+      max-width: 960px;
+      margin-left: auto;
+      margin-right: auto;
+    }
     body {
       margin: 0;
       padding: 20px;
@@ -58,28 +64,13 @@
       font-weight: 600;
       color: #bcd1ff;
     }
-    .chips {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-    .chip {
-      border: 1px solid #2a3f66;
-      padding: 6px 10px;
-      border-radius: 999px;
-      cursor: pointer;
-      user-select: none;
-    }
-    .chip.active {
-      background: #244f92;
-      border-color: #3a6db8;
-    }
     .controls {
       display: flex;
       gap: 8px;
       flex-wrap: wrap;
     }
-    button, select {
+    button,
+    select {
       background: #1a2540;
       color: #eaf0ff;
       border: 1px solid #2a3f66;
@@ -110,6 +101,7 @@
   </style>
 </head>
 <body>
+  <div class="container">
   <header>
     <h1>🎷 Swing Calendar Feed Builder</h1>
     <p class="muted">
@@ -152,10 +144,129 @@
       does not contact any external servers until you subscribe to the URL.
     </p>
   </div>
+  </div> <!-- end container -->
 
   <script>
   // Base URL of your deployed Google Apps Script Web App (see user instructions)
   const BASE_URL = 'https://script.google.com/macros/s/AKfycbwLZ7yudmpkonocViR2Ai1TRiuW9Q0ho2DsNHABA88sUVXazLOg1rTrnFCNTcknCwjEtQ/exec';
+
+  // Localised UI strings for English and German.  These strings control
+  // the visible text on the page (titles, buttons, labels, etc.).  If you
+  // extend this page to support additional languages, add entries here.
+  const uiStrings = {
+    en: {
+      title: '🎷 Swing Calendar Feed Builder',
+      intro: 'Select the tags that describe your interests and we\'ll build a personalised calendar feed. Subscribe to the generated URL in your calendar client to stay up to date with events that match your selections.',
+      language: 'Language:',
+      copyLink: 'Copy link',
+      clearAll: 'Clear all',
+      feedUrlSummary: 'Feed URL',
+      howToSummary: 'How to subscribe',
+      howToText: 'Copy the Feed URL above and paste it into your calendar application\'s “subscribe to calendar” or “add by URL” dialog. Most calendar clients support the iCalendar format.',
+      footer: 'This page uses a locally stored list of tags to build the feed URL. It does not contact any external servers until you subscribe to the URL.',
+      all: 'All',
+      none: 'None'
+    },
+    de: {
+      title: '🎷 Swing Kalender-Feed-Generator',
+      intro: 'Wähle die Tags aus, die deine Interessen beschreiben, und wir erstellen einen personalisierten Kalender-Feed. Abonniere die erzeugte URL in deiner Kalender-App, um über passende Veranstaltungen auf dem Laufenden zu bleiben.',
+      language: 'Sprache:',
+      copyLink: 'Link kopieren',
+      clearAll: 'Alles löschen',
+      feedUrlSummary: 'Feed-URL',
+      howToSummary: 'So abonnieren',
+      howToText: 'Kopiere die oben angezeigte Feed-URL und füge sie in das Dialogfeld „Per URL abonnieren“ deiner Kalender‑App ein. Die meisten Kalender unterstützen das iCalendar‑Format.',
+      footer: 'Diese Seite nutzt eine lokal gespeicherte Liste von Tags, um die Feed-URL zu erstellen. Es werden keine externen Server kontaktiert, bis du die URL abonnierst.',
+      all: 'Alle',
+      none: 'Keine'
+    }
+  };
+
+  // Holds translated display names for each tag type (group labels).  This
+  // mapping is populated asynchronously from tags/ui/tags_ui.csv on page load.
+  let typeDisplay = {};
+
+  // Fetch the tag UI CSV and build the typeDisplay map.  The CSV is expected
+  // to have columns: tag_type, ui_type, display_en, display_de.  Any
+  // additional languages can also be supported by adding more display_xx
+  // columns.  Returns a promise that resolves when parsing is complete.
+  async function loadTypeDisplay() {
+    try {
+      const res = await fetch('tags/ui/tags_ui.csv', { cache: 'no-store' });
+      if (!res.ok) throw new Error('Failed to load tag UI definitions');
+      const text = await res.text();
+      const lines = text.trim().split(/\r?\n/);
+      const header = lines[0].split(',');
+      const idxType = header.indexOf('tag_type');
+      const langCols = {};
+      header.forEach((h, i) => {
+        const m = h.match(/^display_(.+)$/);
+        if (m) langCols[m[1]] = i;
+      });
+      const map = {};
+      for (let i = 1; i < lines.length; i++) {
+        const parts = lines[i].split(',');
+        const type = parts[idxType];
+        if (!type) continue;
+        map[type] = {};
+        for (const lang in langCols) {
+          map[type][lang] = parts[langCols[lang]] || type;
+        }
+      }
+      typeDisplay = map;
+    } catch (err) {
+      console.error(err);
+      // fallback: leave typeDisplay empty
+    }
+  }
+
+  // Update all static texts on the page based on the current language
+  function updateStaticText() {
+    const langSel = document.getElementById('lang');
+    const lang = langSel.value || 'en';
+    const strings = uiStrings[lang] || uiStrings.en;
+    // Header title and intro
+    const h1 = document.querySelector('header h1');
+    if (h1) h1.textContent = strings.title;
+    const introP = document.querySelector('header p');
+    if (introP) introP.textContent = strings.intro;
+    // Language label
+    const langLabel = document.querySelector('label[for="lang"]') || document.querySelector('label');
+    if (langLabel) {
+      // The label contains the text and a nbsp and the select element.  Update
+      // only the text part before the nbsp.  To be safe, replace the first
+      // child text node.
+      const node = langLabel.childNodes[0];
+      if (node && node.nodeType === Node.TEXT_NODE) {
+        node.nodeValue = strings.language + ' ';
+      }
+    }
+    // Buttons
+    const copyBtn = document.getElementById('copyLink');
+    if (copyBtn) copyBtn.textContent = strings.copyLink;
+    const clearBtn = document.getElementById('clearAll');
+    if (clearBtn) clearBtn.textContent = strings.clearAll;
+    // Details summaries and text
+    const details = document.querySelectorAll('details');
+    if (details.length > 0) {
+      // First details: feed URL summary
+      const sum1 = details[0].querySelector('summary');
+      if (sum1) sum1.textContent = strings.feedUrlSummary;
+      // Second details: how to subscribe
+      if (details.length > 1) {
+        const sum2 = details[1].querySelector('summary');
+        if (sum2) sum2.textContent = strings.howToSummary;
+        const div = details[1].querySelector('div');
+        if (div) {
+          // Wrap the help text in a paragraph for consistent styling
+          div.innerHTML = '<p>' + strings.howToText + '</p>';
+        }
+      }
+    }
+    // Footer text
+    const footerP = document.querySelector('.footer p');
+    if (footerP) footerP.textContent = strings.footer;
+  }
 
   // Every category is rendered as a set of checkboxes. The original
   // Swing Tag Builder supported different UI widgets (dropdowns,
@@ -302,9 +413,12 @@
     return Array.from(langs);
   })();
 
-  // Populate language selector
+  // Populate the language selector and wire up change handler.  When the
+  // selected language changes we update static text and re-render the groups.
   function initLanguages() {
     const sel = document.getElementById('lang');
+    // Clear any existing options
+    sel.innerHTML = '';
     languages.forEach(lang => {
       const opt = document.createElement('option');
       opt.value = lang;
@@ -315,7 +429,10 @@
     const browserLang = (navigator.language || 'en').slice(0, 2);
     if (languages.includes(browserLang)) sel.value = browserLang;
     else if (languages.includes('en')) sel.value = 'en';
-    sel.addEventListener('change', () => rerenderAll());
+    sel.addEventListener('change', () => {
+      updateStaticText();
+      rerenderAll();
+    });
   }
 
   // Build the UI groups based on tagsByType and ui definitions. This is
@@ -342,20 +459,26 @@
     header.style.alignItems = 'center';
     const title = document.createElement('h3');
     title.style.marginRight = '8px';
-    title.textContent = type;
+    // Use translated display name for the group if available
+    const lang = document.getElementById('lang').value || languages[0];
+    const nameMap = typeDisplay[type] || {};
+    const label = nameMap[lang] || nameMap['en'] || type;
+    title.textContent = label;
     // Buttons wrapper
     const btnWrap = document.createElement('div');
     btnWrap.style.display = 'flex';
     btnWrap.style.gap = '6px';
     const selAll = document.createElement('button');
-    selAll.textContent = 'All';
+    // Translate the "All" button label
+    selAll.textContent = (uiStrings[lang] && uiStrings[lang].all) || 'All';
     selAll.addEventListener('click', () => {
       // Select all tags for this type
       state[type] = new Set((tagsByType[type] || []).map(item => item.tag));
       rerenderAll();
     });
     const clrAll = document.createElement('button');
-    clrAll.textContent = 'None';
+    // Translate the "None" button label
+    clrAll.textContent = (uiStrings[lang] && uiStrings[lang].none) || 'None';
     clrAll.addEventListener('click', () => {
       // Deselect all tags for this type
       state[type] = new Set();
@@ -433,9 +556,16 @@
   document.getElementById('copyLink').addEventListener('click', copyLinkToClipboard);
   document.getElementById('clearAll').addEventListener('click', clearAllSelections);
 
-  // Initialise everything on page load
-  initLanguages();
-  rerenderAll();
+  // Initialise everything on page load.  First fetch the tag UI labels
+  // from our CSV, then set up the language selector, static text and
+  // initial render.  If the CSV fails to load we still proceed with
+  // default labels.
+  (async () => {
+    await loadTypeDisplay();
+    initLanguages();
+    updateStaticText();
+    rerenderAll();
+  })();
   </script>
 </body>
 </html>
