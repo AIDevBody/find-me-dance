@@ -490,7 +490,8 @@
     header.appendChild(btnWrap);
     groupEl.appendChild(header);
     // Determine language and items
-    const lang = document.getElementById('lang').value || languages[0];
+    // Determine current language and list of tags once
+    const currentLang = document.getElementById('lang').value || languages[0];
     const items = tagsByType[type] || [];
     if (!state[type]) state[type] = new Set();
     // Render all tags as checkboxes
@@ -508,7 +509,7 @@
       });
       lab.appendChild(input);
       const span = document.createElement('span');
-      span.textContent = ' ' + (item[`display_${lang}`] || item.tag);
+      span.textContent = ' ' + (item[`display_${currentLang}`] || item.tag);
       lab.appendChild(span);
       groupEl.appendChild(lab);
     });
