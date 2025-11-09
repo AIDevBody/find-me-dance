@@ -69,6 +69,10 @@
       gap: 8px;
       flex-wrap: wrap;
     }
+    /* Push the clear‑all button to the far right of the controls */
+    #clearAll {
+      margin-left: auto;
+    }
     button,
     select {
       background: #1a2540;
@@ -153,6 +157,10 @@
         bottom: 20px;
         right: 20px;
         z-index: 1000;
+        /* Increase the size and prominence of the floating copy button on small devices */
+        padding: 12px 16px;
+        font-size: 16px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
       }
     }
   </style>
@@ -219,7 +227,8 @@
       intro: 'Select the tags that describe your interests and we\'ll build a personalised calendar feed. Subscribe to the generated URL in your calendar client to stay up to date with events that match your selections.',
       language: 'Language:',
       copyLink: 'Copy calendar URL',
-      clearAll: 'Clear all',
+      copySuccess: 'Copied!',
+      clearAll: 'Clear all tags',
       feedUrlSummary: 'Feed URL',
       howToSummary: 'How to subscribe',
       howToText: 'Copy the Feed URL above and paste it into your calendar application\'s “subscribe to calendar” or “add by URL” dialog. Most calendar clients support the iCalendar format.',
@@ -235,7 +244,8 @@
       intro: 'Wähle die Tags aus, die deine Interessen beschreiben, und wir erstellen einen personalisierten Kalender-Feed. Abonniere die erzeugte URL in deiner Kalender-App, um über passende Veranstaltungen auf dem Laufenden zu bleiben.',
       language: 'Sprache:',
       copyLink: 'Kalender‑URL kopieren',
-      clearAll: 'Alles löschen',
+      copySuccess: 'Kopiert!',
+      clearAll: 'Alle Tags löschen',
       feedUrlSummary: 'Feed-URL',
       howToSummary: 'So abonnierst du',
       howToText: 'Kopiere die oben angezeigte Feed-URL und füge sie in das Dialogfeld „Per URL abonnieren“ deiner Kalender‑App ein. Die meisten Kalender unterstützen das iCalendar‑Format.',
@@ -559,9 +569,17 @@
       input.value = item.tag;
       input.checked = state[type].has(item.tag);
       input.addEventListener('change', () => {
-        if (input.checked) state[type].add(item.tag);
-        else state[type].delete(item.tag);
-        updateFeedUrl();
+        // Update the state based on the checkbox and re-render the UI.  When
+        // all items in a group are selected manually, re-rendering ensures
+        // that the "all selected" warning appears without requiring the
+        // dedicated "All" button.  rerenderAll() will also update the
+        // feed URL via updateFeedUrl().
+        if (input.checked) {
+          state[type].add(item.tag);
+        } else {
+          state[type].delete(item.tag);
+        }
+        rerenderAll();
       });
       lab.appendChild(input);
       const span = document.createElement('span');
@@ -607,6 +625,20 @@
       // fallback: try to exec command
       document.execCommand('copy');
     }
+    // Provide visual feedback when the copy succeeds.  Temporarily change
+    // the button text to a success message and then restore the original
+    // label after a short delay.  Use the translated strings for the
+    // current language if available.
+    const lang = document.getElementById('lang').value || 'en';
+    const strings = uiStrings[lang] || uiStrings.en;
+    const copyBtn = document.getElementById('copyLink');
+    const originalText = strings.copyLink;
+    // Set the success message
+    copyBtn.textContent = strings.copySuccess || 'Copied!';
+    // After 2 seconds, restore the original text
+    setTimeout(() => {
+      copyBtn.textContent = originalText;
+    }, 2000);
   }
 
   // Clear all selections and rebuild UI

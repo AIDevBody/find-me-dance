@@ -139,6 +139,8 @@
         </div>
       </div>
       <p id="intro" class="muted">Follow these instructions to subscribe to your custom feed.</p>
+      <!-- Back link to return to the main feed builder -->
+      <p class="muted"><a id="backLink" href="../index.html">&larr; Back to feed builder</a></p>
     </header>
     <!-- Tab bar for switching between Google and Apple instructions -->
     <div class="tabs">
@@ -153,8 +155,7 @@
       <ol id="googleSteps"></ol>
       <p><strong><a id="googleDoc" href="#" target="_blank"></a></strong></p>
       <p><a id="googleNotifyDoc" href="#" target="_blank"></a></p>
-      <h3 id="videoGoogleTitle"></h3>
-      <iframe id="googleVideo" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+      <!-- Video content removed as per updated requirements -->
     </section>
     <section id="apple" class="card tab-panel">
       <h2 id="appleHeading">Apple Devices</h2>
@@ -167,8 +168,36 @@
       <ol id="appleMacSteps"></ol>
       <p><strong><a id="appleDoc" href="#" target="_blank"></a></strong></p>
       <p><a id="appleAutoDoc" href="#" target="_blank"></a></p>
-      <h3 id="videoAppleTitle"></h3>
-      <iframe id="appleVideo" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+      <!-- Video content removed as per updated requirements -->
+    </section>
+
+    <!-- Calendar customisation links section.  This table lists official support
+         pages for renaming a calendar and changing its colour on both
+         Google and Apple platforms.  The headings and labels are
+         localised via JavaScript. -->
+    <section id="customization" class="card">
+      <h2 id="customizationHeading">Calendar customisation</h2>
+      <table id="customizationTable" style="width:100%; border-collapse: collapse;" class="muted">
+        <thead>
+          <tr>
+            <th id="customizationAction">Action</th>
+            <th id="customizationGoogle">Google support</th>
+            <th id="customizationApple">Apple support</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td id="renameLabel">Rename calendar</td>
+            <td><a id="renameGoogleLink" href="#" target="_blank">Google rename doc</a></td>
+            <td><a id="renameAppleLink" href="#" target="_blank">Apple rename doc</a></td>
+          </tr>
+          <tr>
+            <td id="colourLabel">Change calendar colour</td>
+            <td><a id="colourGoogleLink" href="#" target="_blank">Google colour doc</a></td>
+            <td><a id="colourAppleLink" href="#" target="_blank">Apple colour doc</a></td>
+          </tr>
+        </tbody>
+      </table>
     </section>
     <footer class="muted">
       <p id="footerText"></p>
@@ -216,6 +245,16 @@
       appleAutoDoc: 'Extra: Set auto‑refresh on Mac',
       videoAppleTitle: 'Video: Adding a subscription calendar on Apple devices',
       footer: 'These instructions link to official help articles and videos for more details.'
+      ,
+      // Back link text for returning to the main feed builder
+      backLink: '\u2190 Back to feed builder',
+      // Calendar customisation section
+      customizationHeading: 'Calendar customisation',
+      customizationAction: 'Action',
+      customizationGoogle: 'Google support',
+      customizationApple: 'Apple support',
+      customizationRename: 'Rename calendar',
+      customizationColour: 'Change calendar colour'
     },
     de: {
       title: 'Anleitung zum Abonnieren',
@@ -254,6 +293,15 @@
       appleAutoDoc: 'Extra: Aktualisierungsintervall auf dem Mac festlegen',
       videoAppleTitle: 'Video: Abo‑Kalender auf Apple‑Geräten hinzufügen',
       footer: 'Diese Anleitung verlinkt auf offizielle Hilfeartikel und Videos für weitere Details.'
+      ,
+      // Back link text in German
+      backLink: '\u2190 Zur\u00fcck zum Feed-Generator',
+      customizationHeading: 'Kalender anpassen',
+      customizationAction: 'Aktion',
+      customizationGoogle: 'Google-Hilfe',
+      customizationApple: 'Apple-Hilfe',
+      customizationRename: 'Kalender umbenennen',
+      customizationColour: 'Kalenderfarbe \u00e4ndern'
     }
   };
 
@@ -264,6 +312,21 @@
   // apple_autorefresh_doc, google_calendar_video, apple_calendar_video,
   // google_icon, apple_icon.
   let linkData = {};
+
+  // Links to official documentation for calendar customisation (rename and
+  // colour) on Google and Apple platforms.  These URLs point to the
+  // relevant sections of the support articles.  They are used to
+  // populate the customisation table below.
+  const customizationLinks = {
+    rename: {
+      google: 'https://support.google.com/calendar/answer/37095',
+      apple: 'https://support.apple.com/en-euro/guide/calendar/icl1030/mac'
+    },
+    colour: {
+      google: 'https://support.google.com/calendar/answer/37095',
+      apple: 'https://support.apple.com/en-euro/guide/calendar/icl1030/mac'
+    }
+  };
 
   async function fetchLinks() {
     try {
@@ -327,19 +390,9 @@
     const googleNotifyLink = document.getElementById('googleNotifyDoc');
     googleNotifyLink.textContent = strings.googleNotifyDoc;
     googleNotifyLink.href = (lang === 'de' ? linkData.google_notifications_doc_de : linkData.google_notifications_doc_en) || '#';
-    // Video
-    const googleVideoTitle = document.getElementById('videoGoogleTitle');
-    const gVideo = document.getElementById('googleVideo');
-    if (linkData.google_calendar_video) {
-      googleVideoTitle.textContent = strings.videoGoogleTitle;
-      gVideo.src = linkData.google_calendar_video;
-      googleVideoTitle.style.display = '';
-      gVideo.style.display = '';
-    } else {
-      // Hide video heading and iframe if no official video
-      googleVideoTitle.style.display = 'none';
-      gVideo.style.display = 'none';
-    }
+    // Video content has been removed.  Previously this section would
+    // populate the video title and iframe for Google Calendar.  It is now
+    // intentionally left blank.
     // Apple section
     document.getElementById('appleHeading').textContent = strings.appleHeading;
     if (linkData.apple_icon) {
@@ -372,21 +425,52 @@
     // Use language‑specific auto‑refresh doc if available
     const autoUrl = (lang === 'de' ? linkData.apple_autorefresh_doc_de : linkData.apple_autorefresh_doc_en);
     appleAutoLink.href = autoUrl || '#';
-    // Apple video
-    const appleVideoTitle = document.getElementById('videoAppleTitle');
-    const aVideo = document.getElementById('appleVideo');
-    if (linkData.apple_calendar_video) {
-      appleVideoTitle.textContent = strings.videoAppleTitle;
-      aVideo.src = linkData.apple_calendar_video;
-      appleVideoTitle.style.display = '';
-      aVideo.style.display = '';
-    } else {
-      // Hide the title and iframe when no video
-      appleVideoTitle.style.display = 'none';
-      aVideo.style.display = 'none';
-    }
+    // Apple video content removed as well
     // Footer
     document.getElementById('footerText').textContent = strings.footer;
+
+    // Back link text
+    const backLink = document.getElementById('backLink');
+    if (backLink) backLink.textContent = strings.backLink;
+
+    // Update the customisation table headings and labels.  If the
+    // elements exist, set their text based on the current language.
+    const custHead = document.getElementById('customizationHeading');
+    if (custHead) custHead.textContent = strings.customizationHeading;
+    const custAction = document.getElementById('customizationAction');
+    if (custAction) custAction.textContent = strings.customizationAction;
+    const custGoogle = document.getElementById('customizationGoogle');
+    if (custGoogle) custGoogle.textContent = strings.customizationGoogle;
+    const custApple = document.getElementById('customizationApple');
+    if (custApple) custApple.textContent = strings.customizationApple;
+    const renameLabel = document.getElementById('renameLabel');
+    if (renameLabel) renameLabel.textContent = strings.customizationRename;
+    const colourLabel = document.getElementById('colourLabel');
+    if (colourLabel) colourLabel.textContent = strings.customizationColour;
+    // Update the link destinations in the customisation table.  Use the
+    // predefined URLs for rename and colour.  The same URLs are used
+    // regardless of language since they refer to the English support
+    // pages.
+    const renameGoogleLink = document.getElementById('renameGoogleLink');
+    if (renameGoogleLink) {
+      renameGoogleLink.href = customizationLinks.rename.google;
+      renameGoogleLink.textContent = strings.customizationGoogle;
+    }
+    const renameAppleLink = document.getElementById('renameAppleLink');
+    if (renameAppleLink) {
+      renameAppleLink.href = customizationLinks.rename.apple;
+      renameAppleLink.textContent = strings.customizationApple;
+    }
+    const colourGoogleLink = document.getElementById('colourGoogleLink');
+    if (colourGoogleLink) {
+      colourGoogleLink.href = customizationLinks.colour.google;
+      colourGoogleLink.textContent = strings.customizationGoogle;
+    }
+    const colourAppleLink = document.getElementById('colourAppleLink');
+    if (colourAppleLink) {
+      colourAppleLink.href = customizationLinks.colour.apple;
+      colourAppleLink.textContent = strings.customizationApple;
+    }
 
     // Update tab labels
     const googleTab = document.querySelector('.tab[data-target="google"]');
