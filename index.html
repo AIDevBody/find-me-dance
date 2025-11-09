@@ -187,7 +187,8 @@
     <!-- Inline how‑to text with link to the full instructions page. Visible at all times. -->
     <div id="howToInline" class="howto muted">
       <span id="howToText">Copy the Feed URL above and paste it into your calendar application’s “subscribe to calendar” dialog.</span>
-      <a id="howToButton" href="pages/instructions.html" target="_blank">Instructions</a>
+      <!-- Do not open the instructions in a new window; users stay in the same tab -->
+      <a id="howToButton" href="pages/instructions.html">Instructions</a>
     </div>
   </header>
 
@@ -217,6 +218,12 @@
   <script>
   // Base URL of your deployed Google Apps Script Web App (see user instructions)
   const BASE_URL = 'https://script.google.com/macros/s/AKfycbwLZ7yudmpkonocViR2Ai1TRiuW9Q0ho2DsNHABA88sUVXazLOg1rTrnFCNTcknCwjEtQ/exec';
+
+  // Simple global error handler to log uncaught errors to the console.  This
+  // remains quiet in the UI but aids debugging during development.
+  window.addEventListener('error', (e) => {
+    console.error('Uncaught error:', e.message);
+  });
 
   // Localised UI strings for English and German.  These strings control
   // the visible text on the page (titles, buttons, labels, etc.).  If you
@@ -274,6 +281,7 @@
     // languages by looking for columns matching display_*.  The
     // resulting map is stored in the global typeDisplay object.
     try {
+      // Fetch using a relative path from the resources directory.
       const res = await fetch('resources/tags/ui/tags_ui.csv', { cache: 'no-store' });
       if (!res.ok) throw new Error('Failed to load tag UI definitions');
       const text = await res.text();
@@ -331,6 +339,8 @@
     // For each tag type, fetch and parse its CSV file
     for (const type of toLoad) {
       try {
+        // Build the relative path to the CSV file.  Do not use absolute
+        // file URLs as some environments may block them.
         const res = await fetch(`resources/tags/all/${type}.csv`, { cache: 'no-store' });
         if (!res.ok) {
           console.warn(`Could not load tags for type ${type}`);
@@ -575,6 +585,19 @@
     const query = parts.join('&');
     const url = parts.length ? `${BASE_URL}?${query}` : BASE_URL;
     document.getElementById('feedUrl').value = url;
+    // Persist the current selections in sessionStorage so that when
+    // users navigate away (e.g. to the instructions page) and come
+    // back via the browser’s back button, their selections remain.
+    try {
+      const obj = {};
+      for (const type in state) {
+        obj[type] = Array.from(state[type]);
+      }
+      sessionStorage.setItem('feedState', JSON.stringify(obj));
+    } catch (e) {
+      // Fail silently if storage is unavailable
+      console.warn('Could not save state to sessionStorage:', e);
+    }
   }
 
   // Copy the current feed URL to the clipboard
@@ -613,6 +636,26 @@
     document.getElementById('feedUrl').value = BASE_URL;
   }
 
+  // Restore previous selections from sessionStorage, if available.  This
+  // function reads the stored JSON string (under the key
+  // 'feedState') and updates the global state object accordingly.
+  function loadStateFromStorage() {
+    try {
+      const raw = sessionStorage.getItem('feedState');
+      if (!raw) return;
+      const obj = JSON.parse(raw);
+      for (const type in obj) {
+        const arr = obj[type];
+        if (Array.isArray(arr)) {
+          // Ensure the state entry exists before populating
+          state[type] = new Set(arr);
+        }
+      }
+    } catch (err) {
+      console.warn('Could not load state from sessionStorage:', err);
+    }
+  }
+
   // Attach control handlers
   document.getElementById('copyLink').addEventListener('click', copyLinkToClipboard);
   document.getElementById('clearAll').addEventListener('click', clearAllSelections);
@@ -625,6 +668,8 @@
   (async () => {
     await loadTypeDisplay();
     await loadTagsData();
+    // Restore previous selections before rendering the groups
+    loadStateFromStorage();
     initLanguages();
     updateStaticText();
     rerenderAll();
