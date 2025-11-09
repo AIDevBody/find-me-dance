@@ -88,19 +88,64 @@
       vertical-align: middle;
       margin-right: 8px;
     }
+
+    /* Align the title and language selector on one line */
+    .title-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: var(--gap);
+    }
+    .lang-container {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    /* Tab bar styles */
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: var(--gap);
+    }
+    .tab {
+      background: #1a2540;
+      color: #eaf0ff;
+      border: 1px solid #2a3f66;
+      border-radius: 10px;
+      padding: 8px 12px;
+      cursor: pointer;
+    }
+    .tab.active {
+      background: #2a3f66;
+      border-color: #3c548a;
+    }
+    .tab-panel {
+      display: none;
+    }
+    .tab-panel.active {
+      display: block;
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <header>
-      <h1 id="title">Subscription Guide</h1>
+      <div class="title-bar">
+        <h1 id="title">Subscription Guide</h1>
+        <div class="lang-container">
+          <label id="langLabel"></label>
+          <select id="lang"></select>
+        </div>
+      </div>
       <p id="intro" class="muted">Follow these instructions to subscribe to your custom feed.</p>
     </header>
-    <div class="controls">
-      <label id="langLabel"></label>
-      <select id="lang"></select>
+    <!-- Tab bar for switching between Google and Apple instructions -->
+    <div class="tabs">
+      <button class="tab active" data-target="google">Google Calendar</button>
+      <button class="tab" data-target="apple">Apple devices</button>
     </div>
-    <section id="google" class="card">
+    <section id="google" class="card tab-panel active">
       <h2 id="googleHeading">Google Calendar</h2>
       <div>
         <img id="googleIcon" class="icon" src="" alt="Google Calendar icon" />
@@ -111,7 +156,7 @@
       <h3 id="videoGoogleTitle"></h3>
       <iframe id="googleVideo" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
     </section>
-    <section id="apple" class="card">
+    <section id="apple" class="card tab-panel">
       <h2 id="appleHeading">Apple Devices</h2>
       <div>
         <img id="appleIcon" class="icon" src="" alt="Apple Calendar icon" />
@@ -244,10 +289,9 @@
       sel.appendChild(opt);
     });
     sel.addEventListener('change', updatePage);
-    // Label text
+    // Set default label text (English) now; updatePage() will adjust it later
     const lbl = document.getElementById('langLabel');
-    lbl.appendChild(document.createTextNode(uiStrings.en.language + ' '));
-    lbl.appendChild(sel);
+    if (lbl) lbl.textContent = uiStrings.en.language + ' ';
   }
 
   // Build the list elements based on the current language.
@@ -257,16 +301,11 @@
     // Update labels and headings
     document.getElementById('title').textContent = strings.title;
     document.getElementById('intro').textContent = strings.intro;
-    // Update language label
+    // Update language label text (do not move the select element)
     const lbl = document.getElementById('langLabel');
     if (lbl) {
-      // Remove all child nodes and rebuild
-      lbl.innerHTML = '';
-      lbl.appendChild(document.createTextNode(strings.language + ' '));
+      lbl.textContent = strings.language + ' ';
     }
-    // Reattach the select element after clearing label contents
-    const sel = document.getElementById('lang');
-    if (sel && lbl && !lbl.contains(sel)) lbl.appendChild(sel);
     // Google section
     document.getElementById('googleHeading').textContent = strings.googleHeading;
     // Set icon src using the linkData
@@ -289,10 +328,17 @@
     googleNotifyLink.textContent = strings.googleNotifyDoc;
     googleNotifyLink.href = (lang === 'de' ? linkData.google_notifications_doc_de : linkData.google_notifications_doc_en) || '#';
     // Video
-    document.getElementById('videoGoogleTitle').textContent = strings.videoGoogleTitle;
+    const googleVideoTitle = document.getElementById('videoGoogleTitle');
     const gVideo = document.getElementById('googleVideo');
     if (linkData.google_calendar_video) {
+      googleVideoTitle.textContent = strings.videoGoogleTitle;
       gVideo.src = linkData.google_calendar_video;
+      googleVideoTitle.style.display = '';
+      gVideo.style.display = '';
+    } else {
+      // Hide video heading and iframe if no official video
+      googleVideoTitle.style.display = 'none';
+      gVideo.style.display = 'none';
     }
     // Apple section
     document.getElementById('appleHeading').textContent = strings.appleHeading;
@@ -323,15 +369,30 @@
     appleDocLink.href = (lang === 'de' ? linkData.apple_doc_de : linkData.apple_doc_en) || '#';
     const appleAutoLink = document.getElementById('appleAutoDoc');
     appleAutoLink.textContent = strings.appleAutoDoc;
-    appleAutoLink.href = linkData.apple_autorefresh_doc || '#';
+    // Use language‑specific auto‑refresh doc if available
+    const autoUrl = (lang === 'de' ? linkData.apple_autorefresh_doc_de : linkData.apple_autorefresh_doc_en);
+    appleAutoLink.href = autoUrl || '#';
     // Apple video
-    document.getElementById('videoAppleTitle').textContent = strings.videoAppleTitle;
+    const appleVideoTitle = document.getElementById('videoAppleTitle');
     const aVideo = document.getElementById('appleVideo');
     if (linkData.apple_calendar_video) {
+      appleVideoTitle.textContent = strings.videoAppleTitle;
       aVideo.src = linkData.apple_calendar_video;
+      appleVideoTitle.style.display = '';
+      aVideo.style.display = '';
+    } else {
+      // Hide the title and iframe when no video
+      appleVideoTitle.style.display = 'none';
+      aVideo.style.display = 'none';
     }
     // Footer
     document.getElementById('footerText').textContent = strings.footer;
+
+    // Update tab labels
+    const googleTab = document.querySelector('.tab[data-target="google"]');
+    const appleTab = document.querySelector('.tab[data-target="apple"]');
+    if (googleTab) googleTab.textContent = strings.googleHeading;
+    if (appleTab) appleTab.textContent = strings.appleHeading;
   }
 
   // On page load, fetch the link data and initialise the language
@@ -345,6 +406,19 @@
     const sel = document.getElementById('lang');
     if (uiStrings[browserLang]) sel.value = browserLang;
     updatePage();
+    // Set up tab switching behaviour
+    document.querySelectorAll('.tab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        // Toggle active class on tabs
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        btn.classList.add('active');
+        // Show/hide panels
+        document.querySelectorAll('.tab-panel').forEach(panel => panel.classList.remove('active'));
+        const target = btn.getAttribute('data-target');
+        const panel = document.getElementById(target);
+        if (panel) panel.classList.add('active');
+      });
+    });
   });
   </script>
 </body>
