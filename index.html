@@ -267,11 +267,18 @@
   // additional languages can also be supported by adding more display_xx
   // columns.  Returns a promise that resolves when parsing is complete.
   async function loadTypeDisplay() {
+    // Fetch the UI definitions for tag types.  This CSV lives under
+    // resources/tags/ui/tags_ui.csv after we moved the tag folder into
+    // the resources directory.  It contains columns: tag_type,
+    // ui_type, display_en, display_de, etc.  We detect all
+    // languages by looking for columns matching display_*.  The
+    // resulting map is stored in the global typeDisplay object.
     try {
-      const res = await fetch('tags/ui/tags_ui.csv', { cache: 'no-store' });
+      const res = await fetch('resources/tags/ui/tags_ui.csv', { cache: 'no-store' });
       if (!res.ok) throw new Error('Failed to load tag UI definitions');
       const text = await res.text();
       const lines = text.trim().split(/\r?\n/);
+      if (lines.length === 0) return;
       const header = lines[0].split(',');
       const idxType = header.indexOf('tag_type');
       const langCols = {};
@@ -284,7 +291,7 @@
         const parts = lines[i].split(',');
         const type = parts[idxType];
         if (!type) continue;
-        map[type] = {};
+        if (!map[type]) map[type] = {};
         for (const lang in langCols) {
           map[type][lang] = parts[langCols[lang]] || type;
         }
@@ -292,8 +299,85 @@
       typeDisplay = map;
     } catch (err) {
       console.error(err);
-      // fallback: leave typeDisplay empty
+      // fallback: leave typeDisplay empty if the file can't be loaded
     }
+  }
+
+  // Load all tag definitions from the CSV files under
+  // resources/tags/all.  We determine which files to load based on the
+  // tag types listed in the UI definitions (typeDisplay) or from the
+  // names of files in that directory.  Each CSV must have columns
+  // tag_type, tag, display_XX (for each language), and is-active
+  // indicating whether the tag should be presented to the user.  Any
+  // number of languages is supported: language codes are derived
+  // automatically from the header names.  The resulting tags are
+  // stored in the global tagsByType object keyed by tag_type.  The
+  // global languages array is also updated to include all languages
+  // encountered across the CSVs.
+  async function loadTagsData() {
+    // Determine candidate tag types from the UI definition.  If
+    // typeDisplay is empty (for example if the UI CSV failed to load),
+    // fall back to a hardcoded list of tag names that match the files
+    // provided by the update_tags.sh script.
+    const defaultTypes = [
+      'location', 'dance_type', 'event_type', 'level', 'role',
+      'music_speed', 'music_source', 'language', 'venue_type',
+      'registration', 'price_type', 'age_policy', 'footwear'
+    ];
+    const types = Object.keys(typeDisplay);
+    const toLoad = types.length > 0 ? types : defaultTypes;
+    // Set to collect all languages discovered across all files
+    const langSet = new Set(languages);
+    // For each tag type, fetch and parse its CSV file
+    for (const type of toLoad) {
+      try {
+        const res = await fetch(`resources/tags/all/${type}.csv`, { cache: 'no-store' });
+        if (!res.ok) {
+          console.warn(`Could not load tags for type ${type}`);
+          continue;
+        }
+        const csvText = await res.text();
+        const lines = csvText.trim().split(/\r?\n/);
+        if (lines.length === 0) continue;
+        const header = lines[0].split(',');
+        const idxTag = header.indexOf('tag');
+        const idxActive = header.findIndex(h => h.toLowerCase() === 'is-active');
+        // Detect language columns in the form display_xx
+        const displayCols = {};
+        header.forEach((h, i) => {
+          const m = h.match(/^display_(.+)$/);
+          if (m) {
+            const code = m[1];
+            displayCols[code] = i;
+            langSet.add(code);
+          }
+        });
+        // Prepare array of tag objects for this type
+        const items = [];
+        for (let i = 1; i < lines.length; i++) {
+          // If there are extra commas inside quoted fields this split
+          // might misbehave; but our spreadsheets produce simple CSVs.
+          const parts = lines[i].split(',');
+          const tagVal = parts[idxTag];
+          // Skip rows without a tag value
+          if (!tagVal) continue;
+          // Only include active tags
+          const isActive = idxActive >= 0 ? (parts[idxActive] || '').toLowerCase() === 'true' : true;
+          if (!isActive) continue;
+          const obj = { tag: tagVal };
+          for (const code in displayCols) {
+            obj[`display_${code}`] = parts[displayCols[code]] || tagVal;
+          }
+          items.push(obj);
+        }
+        // Store items for this type
+        tagsByType[type] = items;
+      } catch (err) {
+        console.warn(`Error loading tag CSV for ${type}:`, err);
+      }
+    }
+    // Update the global languages array based on the discovered set
+    languages = Array.from(langSet);
   }
 
   // Update all static texts on the page based on the current language
@@ -340,123 +424,11 @@
   // those definitions here. This means visitors can select multiple
   // options per category. See renderGroup() for details.
 
-  // Tags grouped by type. Each entry has at minimum a 'tag' field and
-  // one or more 'display_xx' fields for different languages. Only
-  // active tags are included.
-  const tagsByType = {
-    "footwear": [
-      { "tag": "sneakers-ok", "display_de": "Sneaker erlaubt", "display_en": "Sneakers OK" },
-      { "tag": "leather-soles", "display_de": "Ledersohlen", "display_en": "Leather Soles" },
-      { "tag": "no-heels", "display_de": "Keine Absätze", "display_en": "No Heels" },
-      { "tag": "street-shoes-ok", "display_de": "Straßenschuhe erlaubt", "display_en": "Street Shoes OK" }
-    ],
-    "event_type": [
-      { "tag": "class", "display_de": "Kursstunde", "display_en": "Class" },
-      { "tag": "course", "display_de": "Kurs (Serie)", "display_en": "Course" },
-      { "tag": "workshop", "display_de": "Workshop", "display_en": "Workshop" },
-      { "tag": "intensive", "display_de": "Intensivkurs", "display_en": "Intensive" },
-      { "tag": "taster", "display_de": "Schnupperkurs", "display_en": "Taster" },
-      { "tag": "practice", "display_de": "Übungsabend", "display_en": "Practice" },
-      { "tag": "social", "display_de": "Social Dance", "display_en": "Social" },
-      { "tag": "party", "display_de": "Party", "display_en": "Party" },
-      { "tag": "live-music", "display_de": "Livemusik", "display_en": "Live Music" },
-      { "tag": "band-night", "display_de": "Band-Nacht", "display_en": "Band Night" },
-      { "tag": "festival", "display_de": "Festival", "display_en": "Festival" },
-      { "tag": "exchange", "display_de": "Exchange", "display_en": "Exchange" },
-      { "tag": "competition", "display_de": "Wettbewerb", "display_en": "Competition" },
-      { "tag": "performance", "display_de": "Performance", "display_en": "Performance" },
-      { "tag": "lecture", "display_de": "Vortrag", "display_en": "Lecture" }
-    ],
-    "music_speed": [
-      { "tag": "slow", "display_de": "Langsam", "display_en": "Slow" },
-      { "tag": "medium", "display_de": "Mittel", "display_en": "Medium" },
-      { "tag": "fast", "display_de": "Schnell", "display_en": "Fast" },
-      { "tag": "very-fast", "display_de": "Sehr schnell", "display_en": "Very Fast" },
-      { "tag": "bpm-80-110", "display_de": "BPM 80–110", "display_en": "BPM 80–110" },
-      { "tag": "bpm-110-140", "display_de": "BPM 110–140", "display_en": "BPM 110–140" },
-      { "tag": "bpm-140-170", "display_de": "BPM 140–170", "display_en": "BPM 140–170" },
-      { "tag": "bpm-170-plus", "display_de": "BPM 170+", "display_en": "BPM 170+" }
-    ],
-    "role": [
-      { "tag": "leader", "display_de": "Leader", "display_en": "Leader" },
-      { "tag": "follower", "display_de": "Follower", "display_en": "Follower" },
-      { "tag": "switch", "display_de": "Switch", "display_en": "Switch" },
-      { "tag": "forced-switch", "display_de": "Switch (vorgegeben)", "display_en": "Forced Switch" }
-    ],
-    "price_type": [
-      { "tag": "free", "display_de": "Kostenlos", "display_en": "Free" },
-      { "tag": "donation", "display_de": "Spende", "display_en": "Donation" },
-      { "tag": "paid", "display_de": "Beitrag", "display_en": "Paid" },
-      { "tag": "sliding-scale", "display_de": "Gleitende Skala", "display_en": "Sliding Scale" }
-    ],
-    "level": [
-      { "tag": "beginner", "display_de": "Anfänger", "display_en": "Beginner" },
-      { "tag": "beginner-plus", "display_de": "Anfänger+", "display_en": "Beginner+" },
-      { "tag": "improver", "display_de": "Improver", "display_en": "Improver" },
-      { "tag": "intermediate", "display_de": "Mittelstufe", "display_en": "Intermediate" },
-      { "tag": "intermediate-plus", "display_de": "Mittelstufe+", "display_en": "Intermediate+" },
-      { "tag": "advanced", "display_de": "Fortgeschritten", "display_en": "Advanced" },
-      { "tag": "all-levels", "display_de": "Alle Levels", "display_en": "All Levels" },
-      { "tag": "open-level", "display_de": "Offenes Level", "display_en": "Open Level" }
-    ],
-    "dance_type": [
-      { "tag": "lindy-hop", "display_de": "Lindy Hop", "display_en": "Lindy Hop" },
-      { "tag": "balboa", "display_de": "Balboa", "display_en": "Balboa" },
-      { "tag": "bal-swing", "display_de": "Bal-Swing", "display_en": "Bal Swing" },
-      { "tag": "collegiate-shag", "display_de": "Collegiate Shag", "display_en": "Collegiate Shag" },
-      { "tag": "st-louis-shag", "display_de": "St. Louis Shag", "display_en": "St Louis Shag" },
-      { "tag": "charleston", "display_de": "Charleston", "display_en": "Charleston" },
-      { "tag": "solo-jazz", "display_de": "Solo Jazz", "display_en": "Solo Jazz" },
-      { "tag": "jazz-roots", "display_de": "Jazz Roots", "display_en": "Jazz Roots" },
-      { "tag": "east-coast-swing", "display_de": "East Coast Swing", "display_en": "East Coast Swing" },
-      { "tag": "west-coast-swing", "display_de": "West Coast Swing", "display_en": "West Coast Swing" },
-      { "tag": "boogie-woogie", "display_de": "Boogie Woogie", "display_en": "Boogie Woogie" },
-      { "tag": "blues", "display_de": "Blues", "display_en": "Blues" },
-      { "tag": "shag", "display_de": "Shag", "display_en": "Shag" },
-      { "tag": "jitterbug", "display_de": "Jitterbug", "display_en": "Jitterbug" },
-      { "tag": "rock-n-roll", "display_de": "Rock ’n’ Roll", "display_en": "Rock ’n’ Roll" }
-    ],
-    "language": [
-      { "tag": "german", "display_de": "Deutsch", "display_en": "German" },
-      { "tag": "english", "display_de": "Englisch", "display_en": "English" },
-      { "tag": "bilingual", "display_de": "Zweisprachig", "display_en": "Bilingual" },
-      { "tag": "all-welcome", "display_de": "Alle willkommen", "display_en": "All Welcome" }
-    ],
-    "venue_type": [
-      { "tag": "studio", "display_de": "Studio", "display_en": "Studio" },
-      { "tag": "bar", "display_de": "Bar", "display_en": "Bar" },
-      { "tag": "club", "display_de": "Club", "display_en": "Club" },
-      { "tag": "outdoors", "display_de": "Draußen", "display_en": "Outdoors" },
-      { "tag": "community-center", "display_de": "Gemeindezentrum", "display_en": "Community Center" },
-      { "tag": "theater", "display_de": "Theater", "display_en": "Theater" },
-      { "tag": "university", "display_de": "Universität", "display_en": "University" },
-      { "tag": "others", "display_de": "Sonstiges", "display_en": "Others" }
-    ],
-    "age_policy": [
-      { "tag": "all-ages", "display_de": "Alle Altersgruppen", "display_en": "All Ages" },
-      { "tag": "children-only", "display_de": "Nur Kinder", "display_en": "Children Only" },
-      { "tag": "16-plus", "display_de": "Ab 16", "display_en": "16+" },
-      { "tag": "18-plus", "display_de": "Ab 18", "display_en": "18+" },
-      { "tag": "family-friendly", "display_de": "Familienfreundlich", "display_en": "Family Friendly" }
-    ],
-    "location": [
-      { "tag": "weimar", "display_de": "Weimar", "display_en": "Weimar" },
-      { "tag": "erfurt", "display_de": "Erfurt", "display_en": "Erfurt" },
-      { "tag": "jena", "display_de": "Jena", "display_en": "Jena" }
-    ],
-    "music_source": [
-      { "tag": "live", "display_de": "Live", "display_en": "Live" },
-      { "tag": "dj", "display_de": "DJ", "display_en": "Dj" },
-      { "tag": "live-and-dj", "display_de": "Live & DJ", "display_en": "Live & DJ" }
-    ],
-    "registration": [
-      { "tag": "drop-in", "display_de": "Ohne Anmeldung", "display_en": "Drop-in" },
-      { "tag": "registration-required", "display_de": "Anmeldung erforderlich", "display_en": "Registration Required" },
-      { "tag": "partner-required", "display_de": "Partner*in erforderlich", "display_en": "Partner Required" },
-      { "tag": "partner-optional", "display_de": "Partner*in optional", "display_en": "Partner Optional" },
-      { "tag": "membership-only", "display_de": "Nur Mitglieder", "display_en": "Membership Only" }
-    ]
-  };
+  // Tags grouped by type will be populated by reading CSV files from
+  // resources/tags/all on page load.  Each entry in this object
+  // contains an array of tag definitions for that type.  See
+  // loadTagsData() below for implementation.
+  const tagsByType = {};
 
   // Note: We intentionally omit normalising UI types since every group
   // is rendered as a multi‑select checkbox list. See renderGroup().
@@ -465,19 +437,10 @@
   // to easily add/remove selections.
   const state = {};
 
-  // Determine available languages by inspecting display_ prefixes.
-  const languages = (() => {
-    const langs = new Set();
-    for (const type in tagsByType) {
-      tagsByType[type].forEach(item => {
-        Object.keys(item).forEach(key => {
-          const m = key.match(/^display_(.+)$/);
-          if (m) langs.add(m[1]);
-        });
-      });
-    }
-    return Array.from(langs);
-  })();
+  // List of available languages will be determined after loading the
+  // tag CSVs.  Initialise with sensible defaults; loadTagsData()
+  // updates this array once tags have been parsed.
+  let languages = ['en', 'de'];
 
   // Populate the language selector and wire up change handler.  When the
   // selected language changes we update static text and re-render the groups.
@@ -654,12 +617,14 @@
   document.getElementById('copyLink').addEventListener('click', copyLinkToClipboard);
   document.getElementById('clearAll').addEventListener('click', clearAllSelections);
 
-  // Initialise everything on page load.  First fetch the tag UI labels
-  // from our CSV, then set up the language selector, static text and
-  // initial render.  If the CSV fails to load we still proceed with
-  // default labels.
+  // Initialise everything on page load.  First fetch the tag UI
+  // definitions and the per‑type tag CSVs from the resources
+  // directory.  Once these are loaded we update languages, build the
+  // language selector, update static text and render the groups.  If
+  // any of these steps fail we still proceed with sensible defaults.
   (async () => {
     await loadTypeDisplay();
+    await loadTagsData();
     initLanguages();
     updateStaticText();
     rerenderAll();
