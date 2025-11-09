@@ -1,18 +1,14 @@
 tag_type,ui_type,display_en,display_de
-# Each tag type is given a human‑friendly name in both English and German.
-# These display names are used by the calendar feed builder UI to label
-# the selection groups.  If you add additional tag types in the future,
-# be sure to supply translations for both languages here as well.
 location,dropdown-single,Location,Ort
 dance_type,checkbox-multi,Dance Type,Tanzstil
 event_type,checkbox-multi,Event Type,Veranstaltungstyp
-level,dropdown-single,Level,Level
+level,checkbox-multi,Level,Level
 role,checkbox-multi,Role,Rolle
 music_speed,checkbox-multi,Music Speed,Musikgeschwindigkeit
 music_source,checkbox-multi,Music Source,Musikquelle
 language,checkbox-multi,Language,Sprache
 venue_type,checkbox-multi,Venue Type,Veranstaltungsort
-registration,dropdown-single,Registration,Anmeldung
+registration,checkbox-multi,Registration,Anmeldung
 price_type,checkbox-multi,Price Type,Preisart
 age_policy,checkbox-multi,Age Policy,Altersbeschränkung
 footwear,checkbox-multi,Footwear,Schuhwerk
