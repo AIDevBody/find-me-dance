@@ -301,7 +301,7 @@
         <input type="checkbox" id="modalAcknowledge" />
         <span id="modalCheckboxLabel">I have read the warning and accept that opening links is at my own risk.</span>
       </label>
-      <div class="modal-actions">
+      <div class="modal-actions" id="modalActions">
         <button id="modalCancel" type="button">Cancel</button>
         <button id="modalConfirm" type="button" disabled>Show my calendar URL</button>
       </div>
@@ -350,6 +350,7 @@
       modalCheckbox: 'I have read the warning and accept that opening links from event descriptions is my own responsibility.',
       modalCancel: 'Cancel',
       modalConfirm: 'Show my calendar URL',
+      modalResultTitle: 'Your calendar feed link',
       modalResultText: 'Copy this feed URL into the “subscribe to calendar” dialog of your preferred calendar app.',
       feedUrlLabel: 'Your calendar URL',
       all: 'All',
@@ -376,6 +377,7 @@
       modalCheckbox: 'Ich habe den Hinweis gelesen und akzeptiere, dass das Öffnen von Links aus Event-Beschreibungen allein in meiner Verantwortung liegt.',
       modalCancel: 'Abbrechen',
       modalConfirm: 'Kalender-URL anzeigen',
+      modalResultTitle: 'Dein Kalender-Feed-Link',
       modalResultText: 'Kopiere diesen Feed in den Dialog „Kalender per URL abonnieren“ deiner Kalender-App.',
       feedUrlLabel: 'Deine Kalender-URL',
       all: 'Alle',
@@ -763,17 +765,33 @@
     }, 2000);
   }
 
+  function resetModalState(options = {}) {
+    const { resetTitle = false } = options;
+    const checkbox = document.getElementById('modalAcknowledge');
+    if (checkbox) {
+      checkbox.checked = false;
+      checkbox.disabled = false;
+    }
+    const confirmBtn = document.getElementById('modalConfirm');
+    if (confirmBtn) confirmBtn.disabled = true;
+    const actions = document.getElementById('modalActions');
+    if (actions) actions.classList.remove('hidden');
+    const result = document.getElementById('modalResult');
+    if (result) result.classList.add('hidden');
+    if (resetTitle) {
+      const lang = document.getElementById('lang').value || 'en';
+      const strings = uiStrings[lang] || uiStrings.en;
+      const modalTitle = document.getElementById('modalTitle');
+      if (modalTitle) modalTitle.textContent = strings.modalTitle || '';
+    }
+  }
+
   function openLinkModal() {
     const modal = document.getElementById('linkModal');
     if (!modal) return;
+    resetModalState({ resetTitle: true });
     modal.classList.remove('hidden');
     document.body.classList.add('modal-open');
-    const checkbox = document.getElementById('modalAcknowledge');
-    if (checkbox) checkbox.checked = false;
-    const confirmBtn = document.getElementById('modalConfirm');
-    if (confirmBtn) confirmBtn.disabled = true;
-    const result = document.getElementById('modalResult');
-    if (result) result.classList.add('hidden');
     const lang = document.getElementById('lang').value || 'en';
     const strings = uiStrings[lang] || uiStrings.en;
     const copyBtn = document.getElementById('copyLink');
@@ -783,6 +801,7 @@
   function closeLinkModal() {
     const modal = document.getElementById('linkModal');
     if (!modal) return;
+    resetModalState({ resetTitle: true });
     modal.classList.add('hidden');
     document.body.classList.remove('modal-open');
   }
@@ -817,27 +836,50 @@
   }
 
   // Attach control handlers
-  document.getElementById('copyLink').addEventListener('click', copyLinkToClipboard);
-  document.getElementById('clearAll').addEventListener('click', clearAllSelections);
-  document.getElementById('generateLink').addEventListener('click', openLinkModal);
-  document.getElementById('modalCancel').addEventListener('click', closeLinkModal);
-  document.getElementById('modalClose').addEventListener('click', closeLinkModal);
-  document.getElementById('linkModal').addEventListener('click', (event) => {
-    if (event.target === event.currentTarget) closeLinkModal();
-  });
-  document.getElementById('modalAcknowledge').addEventListener('change', (event) => {
-    document.getElementById('modalConfirm').disabled = !event.target.checked;
-  });
-  document.getElementById('modalConfirm').addEventListener('click', () => {
-    const result = document.getElementById('modalResult');
-    if (result) result.classList.remove('hidden');
-    updateFeedUrl();
-    const input = document.getElementById('feedUrl');
-    if (input) {
-      input.focus();
-      input.select();
-    }
-  });
+  const copyButton = document.getElementById('copyLink');
+  if (copyButton) copyButton.addEventListener('click', copyLinkToClipboard);
+  const clearButton = document.getElementById('clearAll');
+  if (clearButton) clearButton.addEventListener('click', clearAllSelections);
+  const generateButton = document.getElementById('generateLink');
+  if (generateButton) generateButton.addEventListener('click', openLinkModal);
+  const cancelButton = document.getElementById('modalCancel');
+  if (cancelButton) cancelButton.addEventListener('click', closeLinkModal);
+  const closeButton = document.getElementById('modalClose');
+  if (closeButton) closeButton.addEventListener('click', closeLinkModal);
+  const modalOverlay = document.getElementById('linkModal');
+  if (modalOverlay) {
+    modalOverlay.addEventListener('click', (event) => {
+      if (event.target === event.currentTarget) closeLinkModal();
+    });
+  }
+  const checkboxEl = document.getElementById('modalAcknowledge');
+  if (checkboxEl) {
+    checkboxEl.addEventListener('change', (event) => {
+      const confirmBtn = document.getElementById('modalConfirm');
+      if (confirmBtn) confirmBtn.disabled = !event.target.checked;
+    });
+  }
+  const confirmButton = document.getElementById('modalConfirm');
+  if (confirmButton) {
+    confirmButton.addEventListener('click', () => {
+      const result = document.getElementById('modalResult');
+      if (result) result.classList.remove('hidden');
+      const actions = document.getElementById('modalActions');
+      if (actions) actions.classList.add('hidden');
+      const checkbox = document.getElementById('modalAcknowledge');
+      if (checkbox) checkbox.disabled = true;
+      const lang = document.getElementById('lang').value || 'en';
+      const strings = uiStrings[lang] || uiStrings.en;
+      const modalTitle = document.getElementById('modalTitle');
+      if (modalTitle) modalTitle.textContent = strings.modalResultTitle || strings.modalTitle || '';
+      updateFeedUrl();
+      const input = document.getElementById('feedUrl');
+      if (input) {
+        input.focus();
+        input.select();
+      }
+    });
+  }
   window.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
       const modal = document.getElementById('linkModal');
