@@ -101,7 +101,7 @@
       display: none;
     }
 
-    .modal {
+    .modal-overlay {
       position: fixed;
       inset: 0;
       background: rgba(7, 9, 15, 0.85);
@@ -191,13 +191,6 @@
       margin-top: 20px;
       font-size: 12px;
     }
-    details {
-      margin-top: 8px;
-    }
-    summary {
-      cursor: pointer;
-    }
-
     /* Align the title and language selector on one line */
     .title-bar {
       display: flex;
@@ -234,6 +227,20 @@
       font-size: 12px;
       color: #e5b867;
       margin-top: 6px;
+    }
+    @media (max-width: 600px) {
+      #generateLink {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        z-index: 1000;
+        width: auto;
+        padding: 12px 16px;
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+      }
+      .card .controls {
+        padding-bottom: 60px;
+      }
     }
   </style>
 </head>
@@ -286,35 +293,6 @@
       </p>
     </div>
   </div> <!-- end container -->
-
-  <div id="linkModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-    <div class="modal-content">
-      <button class="modal-close" id="modalClose" type="button" aria-label="Close dialog">×</button>
-      <h2 id="modalTitle">Stay safe before you subscribe</h2>
-      <p id="modalIntro">
-        Event descriptions may contain external links. Treat every link with caution and only continue if you understand the risks.
-      </p>
-      <p id="modalReminder">
-        Please re-read the warning at the top of this page. Your calendar provider cannot protect you from malicious third-party content.
-      </p>
-      <label class="notice-checkbox">
-        <input type="checkbox" id="modalAcknowledge" />
-        <span id="modalCheckboxLabel">I have read the warning and accept that opening links is at my own risk.</span>
-      </label>
-      <div class="modal-actions" id="modalActions">
-        <button id="modalCancel" type="button">Cancel</button>
-        <button id="modalConfirm" type="button" disabled>Show my calendar URL</button>
-      </div>
-      <div id="modalResult" class="modal-result hidden">
-        <p id="modalResultText">Copy this feed URL into the “subscribe to calendar” dialog of your favourite calendar app.</p>
-        <label id="feedUrlLabel" for="feedUrl">Your calendar URL</label>
-        <input id="feedUrl" type="text" readonly />
-        <div class="modal-copy-row">
-          <button id="copyLink" type="button">Copy calendar URL</button>
-        </div>
-      </div>
-    </div>
-  </div>
 
   <script>
   // Base URL of your deployed Google Apps Script Web App (see user instructions)
@@ -721,7 +699,8 @@
     }
     const query = parts.join('&');
     const url = parts.length ? `${BASE_URL}?${query}` : BASE_URL;
-    document.getElementById('feedUrl').value = url;
+    const feedInput = document.getElementById('feedUrl');
+    if (feedInput) feedInput.value = url;
     // Persist the current selections in sessionStorage so that when
     // users navigate away (e.g. to the instructions page) and come
     // back via the browser’s back button, their selections remain.
@@ -740,6 +719,7 @@
   // Copy the current feed URL to the clipboard
   async function copyLinkToClipboard() {
     const el = document.getElementById('feedUrl');
+    if (!el) return;
     el.select();
     el.setSelectionRange(0, 99999);
     try {
@@ -765,45 +745,135 @@
     }, 2000);
   }
 
-  function resetModalState(options = {}) {
-    const { resetTitle = false } = options;
-    const checkbox = document.getElementById('modalAcknowledge');
-    if (checkbox) {
-      checkbox.checked = false;
-      checkbox.disabled = false;
+  let activeModal = null;
+
+  function closeLinkModal() {
+    if (activeModal) {
+      activeModal.remove();
+      activeModal = null;
     }
-    const confirmBtn = document.getElementById('modalConfirm');
-    if (confirmBtn) confirmBtn.disabled = true;
-    const actions = document.getElementById('modalActions');
-    if (actions) actions.classList.remove('hidden');
-    const result = document.getElementById('modalResult');
-    if (result) result.classList.add('hidden');
-    if (resetTitle) {
-      const lang = document.getElementById('lang').value || 'en';
-      const strings = uiStrings[lang] || uiStrings.en;
-      const modalTitle = document.getElementById('modalTitle');
-      if (modalTitle) modalTitle.textContent = strings.modalTitle || '';
-    }
+    document.body.classList.remove('modal-open');
+  }
+
+  function buildLinkModal() {
+    const lang = document.getElementById('lang').value || 'en';
+    const strings = uiStrings[lang] || uiStrings.en;
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-labelledby', 'modalTitle');
+
+    const content = document.createElement('div');
+    content.className = 'modal-content';
+    overlay.appendChild(content);
+
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'modal-close';
+    closeBtn.type = 'button';
+    closeBtn.setAttribute('aria-label', 'Close dialog');
+    closeBtn.textContent = '×';
+    closeBtn.addEventListener('click', closeLinkModal);
+    content.appendChild(closeBtn);
+
+    const title = document.createElement('h2');
+    title.id = 'modalTitle';
+    title.textContent = strings.modalTitle || '';
+    content.appendChild(title);
+
+    const intro = document.createElement('p');
+    intro.id = 'modalIntro';
+    intro.textContent = strings.modalIntro || '';
+    content.appendChild(intro);
+
+    const reminder = document.createElement('p');
+    reminder.id = 'modalReminder';
+    reminder.textContent = strings.modalReminder || '';
+    content.appendChild(reminder);
+
+    const noticeLabel = document.createElement('label');
+    noticeLabel.className = 'notice-checkbox';
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.id = 'modalAcknowledge';
+    const checkboxText = document.createElement('span');
+    checkboxText.id = 'modalCheckboxLabel';
+    checkboxText.textContent = strings.modalCheckbox || '';
+    noticeLabel.appendChild(checkbox);
+    noticeLabel.appendChild(checkboxText);
+    content.appendChild(noticeLabel);
+
+    const actions = document.createElement('div');
+    actions.className = 'modal-actions';
+    actions.id = 'modalActions';
+    const cancelBtn = document.createElement('button');
+    cancelBtn.id = 'modalCancel';
+    cancelBtn.type = 'button';
+    cancelBtn.textContent = strings.modalCancel || 'Cancel';
+    cancelBtn.addEventListener('click', closeLinkModal);
+    const confirmBtn = document.createElement('button');
+    confirmBtn.id = 'modalConfirm';
+    confirmBtn.type = 'button';
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = strings.modalConfirm || '';
+    actions.appendChild(cancelBtn);
+    actions.appendChild(confirmBtn);
+    content.appendChild(actions);
+
+    const result = document.createElement('div');
+    result.id = 'modalResult';
+    result.className = 'modal-result hidden';
+    const resultText = document.createElement('p');
+    resultText.id = 'modalResultText';
+    resultText.textContent = strings.modalResultText || '';
+    result.appendChild(resultText);
+    const label = document.createElement('label');
+    label.id = 'feedUrlLabel';
+    label.htmlFor = 'feedUrl';
+    label.textContent = strings.feedUrlLabel || '';
+    result.appendChild(label);
+    const input = document.createElement('input');
+    input.id = 'feedUrl';
+    input.type = 'text';
+    input.readOnly = true;
+    result.appendChild(input);
+    const copyRow = document.createElement('div');
+    copyRow.className = 'modal-copy-row';
+    const copyBtn = document.createElement('button');
+    copyBtn.id = 'copyLink';
+    copyBtn.type = 'button';
+    copyBtn.textContent = strings.copyLink || 'Copy calendar URL';
+    copyBtn.addEventListener('click', copyLinkToClipboard);
+    copyRow.appendChild(copyBtn);
+    result.appendChild(copyRow);
+    content.appendChild(result);
+
+    checkbox.addEventListener('change', () => {
+      confirmBtn.disabled = !checkbox.checked;
+    });
+
+    confirmBtn.addEventListener('click', () => {
+      actions.classList.add('hidden');
+      checkbox.disabled = true;
+      result.classList.remove('hidden');
+      title.textContent = strings.modalResultTitle || strings.modalTitle || '';
+      updateFeedUrl();
+      input.focus();
+      input.select();
+    });
+
+    overlay.addEventListener('click', (event) => {
+      if (event.target === overlay) closeLinkModal();
+    });
+
+    document.body.appendChild(overlay);
+    document.body.classList.add('modal-open');
+    activeModal = overlay;
   }
 
   function openLinkModal() {
-    const modal = document.getElementById('linkModal');
-    if (!modal) return;
-    resetModalState({ resetTitle: true });
-    modal.classList.remove('hidden');
-    document.body.classList.add('modal-open');
-    const lang = document.getElementById('lang').value || 'en';
-    const strings = uiStrings[lang] || uiStrings.en;
-    const copyBtn = document.getElementById('copyLink');
-    if (copyBtn) copyBtn.textContent = strings.copyLink || 'Copy calendar URL';
-  }
-
-  function closeLinkModal() {
-    const modal = document.getElementById('linkModal');
-    if (!modal) return;
-    resetModalState({ resetTitle: true });
-    modal.classList.add('hidden');
-    document.body.classList.remove('modal-open');
+    closeLinkModal();
+    buildLinkModal();
   }
 
   // Clear all selections and rebuild UI
@@ -812,7 +882,8 @@
       state[type].clear();
     }
     rerenderAll();
-    document.getElementById('feedUrl').value = BASE_URL;
+    const input = document.getElementById('feedUrl');
+    if (input) input.value = BASE_URL;
   }
 
   // Restore previous selections from sessionStorage, if available.  This
@@ -836,56 +907,13 @@
   }
 
   // Attach control handlers
-  const copyButton = document.getElementById('copyLink');
-  if (copyButton) copyButton.addEventListener('click', copyLinkToClipboard);
   const clearButton = document.getElementById('clearAll');
   if (clearButton) clearButton.addEventListener('click', clearAllSelections);
   const generateButton = document.getElementById('generateLink');
   if (generateButton) generateButton.addEventListener('click', openLinkModal);
-  const cancelButton = document.getElementById('modalCancel');
-  if (cancelButton) cancelButton.addEventListener('click', closeLinkModal);
-  const closeButton = document.getElementById('modalClose');
-  if (closeButton) closeButton.addEventListener('click', closeLinkModal);
-  const modalOverlay = document.getElementById('linkModal');
-  if (modalOverlay) {
-    modalOverlay.addEventListener('click', (event) => {
-      if (event.target === event.currentTarget) closeLinkModal();
-    });
-  }
-  const checkboxEl = document.getElementById('modalAcknowledge');
-  if (checkboxEl) {
-    checkboxEl.addEventListener('change', (event) => {
-      const confirmBtn = document.getElementById('modalConfirm');
-      if (confirmBtn) confirmBtn.disabled = !event.target.checked;
-    });
-  }
-  const confirmButton = document.getElementById('modalConfirm');
-  if (confirmButton) {
-    confirmButton.addEventListener('click', () => {
-      const result = document.getElementById('modalResult');
-      if (result) result.classList.remove('hidden');
-      const actions = document.getElementById('modalActions');
-      if (actions) actions.classList.add('hidden');
-      const checkbox = document.getElementById('modalAcknowledge');
-      if (checkbox) checkbox.disabled = true;
-      const lang = document.getElementById('lang').value || 'en';
-      const strings = uiStrings[lang] || uiStrings.en;
-      const modalTitle = document.getElementById('modalTitle');
-      if (modalTitle) modalTitle.textContent = strings.modalResultTitle || strings.modalTitle || '';
-      updateFeedUrl();
-      const input = document.getElementById('feedUrl');
-      if (input) {
-        input.focus();
-        input.select();
-      }
-    });
-  }
   window.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') {
-      const modal = document.getElementById('linkModal');
-      if (modal && !modal.classList.contains('hidden')) {
-        closeLinkModal();
-      }
+    if (event.key === 'Escape' && activeModal) {
+      closeLinkModal();
     }
   });
 
