@@ -35,6 +35,9 @@
       background: #0b0f16;
       color: #eaf0ff;
     }
+    body.modal-open {
+      overflow: hidden;
+    }
     a {
       color: #9bcbff;
     }
@@ -47,6 +50,19 @@
       border-radius: var(--radius);
       padding: var(--pad);
       margin-bottom: var(--gap);
+    }
+    .alert {
+      border: 1px solid #e5b867;
+      border-radius: var(--radius);
+      background: #2c210b;
+      color: #ffe9b0;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .alert h2 {
+      margin: 0 0 6px 0;
+      font-size: 18px;
+      color: #ffe9b0;
     }
     .row {
       display: grid;
@@ -66,12 +82,11 @@
     }
     .controls {
       display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
+      flex-direction: column;
+      gap: 10px;
     }
-    /* Push the clear‑all button to the far right of the controls */
-    #clearAll {
-      margin-left: auto;
+    .controls button {
+      width: 100%;
     }
     button,
     select {
@@ -82,13 +97,83 @@
       padding: 8px 10px;
     }
 
-    /* Highlight the copy button */
-    #copyLink {
+    .hidden {
+      display: none;
+    }
+
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(7, 9, 15, 0.85);
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 40px 20px;
+      z-index: 2000;
+    }
+    .modal-content {
+      background: #0f1628;
+      border: 1px solid #2a3f66;
+      border-radius: var(--radius);
+      max-width: 520px;
+      width: 100%;
+      padding: 24px;
+      position: relative;
+    }
+    .modal-content h2 {
+      margin-top: 0;
+      color: #ffd479;
+    }
+    .modal-close {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      background: transparent;
+      border: none;
+      color: #9fb3d9;
+      font-size: 18px;
+      cursor: pointer;
+    }
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 16px;
+    }
+    .modal-result {
+      margin-top: 22px;
+      padding-top: 16px;
+      border-top: 1px solid #243251;
+    }
+    .modal-result label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: #d0dbff;
+    }
+    .modal-copy-row {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 8px;
+    }
+    .notice-checkbox {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-top: 12px;
+      line-height: 1.3;
+    }
+    .notice-checkbox input {
+      margin-top: 2px;
+    }
+
+    /* Highlight the generate button */
+    #generateLink {
       background: #3c548a;
       border-color: #4c6db5;
       color: #ffffff;
     }
-    #copyLink:hover {
+    #generateLink:hover {
       background: #4c6db5;
     }
     input[type="text"] {
@@ -150,70 +235,86 @@
       color: #e5b867;
       margin-top: 6px;
     }
-    /* Float the copy button on small screens so it stays accessible */
-    @media (max-width: 600px) {
-      #copyLink {
-        position: fixed;
-        bottom: 20px;
-        right: 20px;
-        z-index: 1000;
-        /* Increase the size and prominence of the floating copy button on small devices */
-        padding: 12px 16px;
-        font-size: 16px;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
-      }
-    }
   </style>
 </head>
 <body>
   <div class="container">
-  <header>
-    <div class="title-bar">
-      <!-- Title text will be localised via JavaScript -->
-      <h1 id="title">🎷 Swing Calendar Feed Builder</h1>
-      <!-- Language selector moved into header for better positioning -->
-      <div class="lang-container">
-        <label id="langLabel"></label>
-        <select id="lang"></select>
+    <section id="riskNotice" class="alert">
+      <h2 id="riskTitle">Safety notice</h2>
+      <p id="riskText">
+        External links and descriptions shared by event organisers may lead away from find-me-dance. Open them only if you trust the sender — we cannot take responsibility for their content.
+      </p>
+    </section>
+    <header>
+      <div class="title-bar">
+        <!-- Title text will be localised via JavaScript -->
+        <h1 id="title">🎷 Swing Calendar Feed Builder</h1>
+        <!-- Language selector moved into header for better positioning -->
+        <div class="lang-container">
+          <label id="langLabel"></label>
+          <select id="lang"></select>
+        </div>
       </div>
-    </div>
-    <!-- Introductory paragraph will be localised via JavaScript -->
-    <p id="intro" class="muted">
-      Select the tags that describe your interests and we'll build a
-      personalised calendar feed. Subscribe to the generated URL in
-      your calendar client to stay up to date with events that match
-      your selections.
-    </p>
-    <!-- Inline how‑to text with link to the full instructions page. Visible at all times. -->
-    <div id="howToInline" class="howto muted">
-      <span id="howToText">Copy the Feed URL above and paste it into your calendar application’s “subscribe to calendar” dialog.</span>
-      <!-- Do not open the instructions in a new window; users stay in the same tab -->
-      <a id="howToButton" href="pages/instructions.html">Instructions</a>
-    </div>
-  </header>
-
-  <section class="card">
-    <div class="controls">
-      <button id="copyLink">Copy link</button>
-      <button id="clearAll">Clear all</button>
-    </div>
-    <details>
-      <summary>Feed URL</summary>
-      <div style="margin-top:8px;">
-        <input id="feedUrl" type="text" readonly />
+      <!-- Introductory paragraph will be localised via JavaScript -->
+      <p id="intro" class="muted">
+        Select the tags that describe your interests and we'll build a
+        personalised calendar feed. Subscribe to the generated URL in
+        your calendar client to stay up to date with events that match
+        your selections.
+      </p>
+      <!-- Inline how‑to text with link to the full instructions page. Visible at all times. -->
+      <div id="howToInline" class="howto muted">
+        <span id="howToText">Use “Generate my calendar URL” to build your feed, then add it in your calendar app.</span>
+        <!-- Do not open the instructions in a new window; users stay in the same tab -->
+        <a id="howToButton" href="pages/instructions.html">Instructions</a>
       </div>
-    </details>
-  </section>
+    </header>
 
-  <section id="groups" class="row"></section>
+    <section class="card">
+      <div class="controls">
+        <button id="clearAll" type="button">Clear all</button>
+        <button id="generateLink" type="button">Generate my calendar URL</button>
+      </div>
+    </section>
 
-  <div class="footer muted">
-    <p>
-      This page uses a locally stored list of tags to build the feed URL. It
-      does not contact any external servers until you subscribe to the URL.
-    </p>
-  </div>
+    <section id="groups" class="row"></section>
+
+    <div class="footer muted">
+      <p>
+        This page uses a locally stored list of tags to build the feed URL. It
+        does not contact any external servers until you subscribe to the URL.
+      </p>
+    </div>
   </div> <!-- end container -->
+
+  <div id="linkModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-content">
+      <button class="modal-close" id="modalClose" type="button" aria-label="Close dialog">×</button>
+      <h2 id="modalTitle">Stay safe before you subscribe</h2>
+      <p id="modalIntro">
+        Event descriptions may contain external links. Treat every link with caution and only continue if you understand the risks.
+      </p>
+      <p id="modalReminder">
+        Please re-read the warning at the top of this page. Your calendar provider cannot protect you from malicious third-party content.
+      </p>
+      <label class="notice-checkbox">
+        <input type="checkbox" id="modalAcknowledge" />
+        <span id="modalCheckboxLabel">I have read the warning and accept that opening links is at my own risk.</span>
+      </label>
+      <div class="modal-actions">
+        <button id="modalCancel" type="button">Cancel</button>
+        <button id="modalConfirm" type="button" disabled>Show my calendar URL</button>
+      </div>
+      <div id="modalResult" class="modal-result hidden">
+        <p id="modalResultText">Copy this feed URL into the “subscribe to calendar” dialog of your favourite calendar app.</p>
+        <label id="feedUrlLabel" for="feedUrl">Your calendar URL</label>
+        <input id="feedUrl" type="text" readonly />
+        <div class="modal-copy-row">
+          <button id="copyLink" type="button">Copy calendar URL</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <script>
   // Base URL of your deployed Google Apps Script Web App (see user instructions)
@@ -234,14 +335,23 @@
       intro: 'Select the tags that describe your interests and we\'ll build a personalised calendar feed. Subscribe to the generated URL in your calendar client to stay up to date with events that match your selections.',
       language: 'Language:',
       copyLink: 'Copy calendar URL',
+      generateLink: 'Generate my calendar URL',
       copySuccess: 'Copied!',
       clearAll: 'Clear all tags',
-      feedUrlSummary: 'Feed URL',
-      howToSummary: 'How to subscribe',
-      howToText: 'Copy the Feed URL above and paste it into your calendar application\'s “subscribe to calendar” or “add by URL” dialog. Most calendar clients support the iCalendar format.',
-      inlineHowTo: 'Copy the feed URL above and paste it into your calendar application’s “subscribe to calendar” dialog.',
+      riskTitle: 'Safety & responsibility reminder',
+      riskBody: 'Event links and descriptions come directly from event managers and dance teachers. They must keep their listings clear, but misuse is always possible. We do not take responsibility for any third-party links—treat every URL or request for information with caution before opening it from your calendar.',
+      howToText: 'Use “Generate my calendar URL” to create your feed, then paste it into your calendar application\'s “subscribe to calendar” or “add by URL” dialog. Most calendar clients support the iCalendar format.',
+      inlineHowTo: 'Use “Generate my calendar URL” to build your feed, then subscribe via your calendar app.',
       instructionsLabel: 'Instructions',
       footer: 'This page uses a locally stored list of tags to build the feed URL. It does not contact any external servers until you subscribe to the URL.',
+      modalTitle: 'Stay safe before you subscribe',
+      modalIntro: 'Event descriptions can include links that lead away from find-me-dance. Opening them is entirely at your own risk.',
+      modalReminder: 'Re-read the warning at the top of this page and continue only if you understand the danger of malicious links and information requests.',
+      modalCheckbox: 'I have read the warning and accept that opening links from event descriptions is my own responsibility.',
+      modalCancel: 'Cancel',
+      modalConfirm: 'Show my calendar URL',
+      modalResultText: 'Copy this feed URL into the “subscribe to calendar” dialog of your preferred calendar app.',
+      feedUrlLabel: 'Your calendar URL',
       all: 'All',
       none: 'None',
       allSelectedWarning: 'All tags selected: events without this type won’t appear. Select none to see all.'
@@ -251,14 +361,23 @@
       intro: 'Wähle die Tags aus, die deine Interessen beschreiben, und wir erstellen einen personalisierten Kalender-Feed. Abonniere die erzeugte URL in deiner Kalender-App, um über passende Veranstaltungen auf dem Laufenden zu bleiben.',
       language: 'Sprache:',
       copyLink: 'Kalender‑URL kopieren',
+      generateLink: 'Meinen Kalender-Link erzeugen',
       copySuccess: 'Kopiert!',
       clearAll: 'Alle Tags löschen',
-      feedUrlSummary: 'Feed-URL',
-      howToSummary: 'So abonnierst du',
-      howToText: 'Kopiere die oben angezeigte Feed-URL und füge sie in das Dialogfeld „Per URL abonnieren“ deiner Kalender‑App ein. Die meisten Kalender unterstützen das iCalendar‑Format.',
-      inlineHowTo: 'Kopiere die oben angezeigte Feed-URL und füge sie in das Dialogfeld „Kalender abonnieren“ deiner Kalender-App ein.',
+      riskTitle: 'Sicherheits- & Verantwortungshinweis',
+      riskBody: 'Links und Beschreibungen stammen direkt von Veranstalter:innen und Trainer:innen. Sie sind verpflichtet, ihre Events klar zu halten, dennoch ist Missbrauch immer möglich. Wir übernehmen keine Verantwortung für externe Links – prüfe jede URL oder Informationsanfrage aus dem Kalender sehr sorgfältig.',
+      howToText: 'Nutze „Meinen Kalender-Link erzeugen“, um den Feed zu erstellen, und füge ihn dann im Dialog „Per URL abonnieren“ deiner Kalender-App ein. Die meisten Kalender unterstützen das iCalendar-Format.',
+      inlineHowTo: 'Klicke auf „Meinen Kalender-Link erzeugen“, um den Feed zu bauen, und abonniere ihn dann in deiner Kalender-App.',
       instructionsLabel: 'Anleitung',
       footer: 'Diese Seite nutzt eine lokal gespeicherte Liste von Tags, um die Feed-URL zu erstellen. Es werden keine externen Server kontaktiert, bis du die URL abonnierst.',
+      modalTitle: 'Bleib vorsichtig, bevor du abonnierst',
+      modalIntro: 'Veranstaltungsbeschreibungen können Links enthalten, die find-me-dance verlassen. Das Öffnen erfolgt auf dein eigenes Risiko.',
+      modalReminder: 'Lies den Hinweis oben auf dieser Seite erneut und fahre nur fort, wenn du die Gefahr bösartiger Links und Informationsabfragen verstanden hast.',
+      modalCheckbox: 'Ich habe den Hinweis gelesen und akzeptiere, dass das Öffnen von Links aus Event-Beschreibungen allein in meiner Verantwortung liegt.',
+      modalCancel: 'Abbrechen',
+      modalConfirm: 'Kalender-URL anzeigen',
+      modalResultText: 'Kopiere diesen Feed in den Dialog „Kalender per URL abonnieren“ deiner Kalender-App.',
+      feedUrlLabel: 'Deine Kalender-URL',
       all: 'Alle',
       none: 'Keine',
       allSelectedWarning: 'Alle ausgewählt: Ereignisse ohne diese Kategorie werden nicht angezeigt. Wähle keine aus, um alle zu sehen.'
@@ -400,6 +519,10 @@
     if (h1) h1.textContent = strings.title;
     const introP = document.querySelector('header p');
     if (introP) introP.textContent = strings.intro;
+    const riskTitle = document.getElementById('riskTitle');
+    if (riskTitle) riskTitle.textContent = strings.riskTitle || 'Safety notice';
+    const riskText = document.getElementById('riskText');
+    if (riskText) riskText.textContent = strings.riskBody || '';
     // Language label in the header
     const langLabel = document.getElementById('langLabel');
     if (langLabel) {
@@ -408,15 +531,11 @@
     }
     // Buttons
     const copyBtn = document.getElementById('copyLink');
-    if (copyBtn) copyBtn.textContent = strings.copyLink;
+    if (copyBtn) copyBtn.textContent = strings.copyLink || 'Copy calendar URL';
     const clearBtn = document.getElementById('clearAll');
     if (clearBtn) clearBtn.textContent = strings.clearAll;
-    // Details summary for the Feed URL section
-    const details = document.querySelectorAll('details');
-    if (details.length > 0) {
-      const sum1 = details[0].querySelector('summary');
-      if (sum1) sum1.textContent = strings.feedUrlSummary;
-    }
+    const generateBtn = document.getElementById('generateLink');
+    if (generateBtn) generateBtn.textContent = strings.generateLink || 'Generate my calendar URL';
     // Footer text
     const footerP = document.querySelector('.footer p');
     if (footerP) footerP.textContent = strings.footer;
@@ -426,6 +545,22 @@
     if (howToSpan) howToSpan.textContent = strings.inlineHowTo;
     const howToBtn = document.getElementById('howToButton');
     if (howToBtn) howToBtn.textContent = strings.instructionsLabel;
+    const modalTitle = document.getElementById('modalTitle');
+    if (modalTitle) modalTitle.textContent = strings.modalTitle || '';
+    const modalIntro = document.getElementById('modalIntro');
+    if (modalIntro) modalIntro.textContent = strings.modalIntro || '';
+    const modalReminder = document.getElementById('modalReminder');
+    if (modalReminder) modalReminder.textContent = strings.modalReminder || '';
+    const modalCheckbox = document.getElementById('modalCheckboxLabel');
+    if (modalCheckbox) modalCheckbox.textContent = strings.modalCheckbox || '';
+    const modalCancel = document.getElementById('modalCancel');
+    if (modalCancel) modalCancel.textContent = strings.modalCancel || 'Cancel';
+    const modalConfirm = document.getElementById('modalConfirm');
+    if (modalConfirm) modalConfirm.textContent = strings.modalConfirm || 'Show my calendar URL';
+    const modalResultText = document.getElementById('modalResultText');
+    if (modalResultText) modalResultText.textContent = strings.modalResultText || '';
+    const feedUrlLabel = document.getElementById('feedUrlLabel');
+    if (feedUrlLabel) feedUrlLabel.textContent = strings.feedUrlLabel || 'Your calendar URL';
   }
 
   // Every category is rendered as a set of checkboxes. The original
@@ -618,13 +753,38 @@
     const lang = document.getElementById('lang').value || 'en';
     const strings = uiStrings[lang] || uiStrings.en;
     const copyBtn = document.getElementById('copyLink');
-    const originalText = strings.copyLink;
+    if (!copyBtn) return;
+    const originalText = strings.copyLink || 'Copy calendar URL';
     // Set the success message
     copyBtn.textContent = strings.copySuccess || 'Copied!';
     // After 2 seconds, restore the original text
     setTimeout(() => {
       copyBtn.textContent = originalText;
     }, 2000);
+  }
+
+  function openLinkModal() {
+    const modal = document.getElementById('linkModal');
+    if (!modal) return;
+    modal.classList.remove('hidden');
+    document.body.classList.add('modal-open');
+    const checkbox = document.getElementById('modalAcknowledge');
+    if (checkbox) checkbox.checked = false;
+    const confirmBtn = document.getElementById('modalConfirm');
+    if (confirmBtn) confirmBtn.disabled = true;
+    const result = document.getElementById('modalResult');
+    if (result) result.classList.add('hidden');
+    const lang = document.getElementById('lang').value || 'en';
+    const strings = uiStrings[lang] || uiStrings.en;
+    const copyBtn = document.getElementById('copyLink');
+    if (copyBtn) copyBtn.textContent = strings.copyLink || 'Copy calendar URL';
+  }
+
+  function closeLinkModal() {
+    const modal = document.getElementById('linkModal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    document.body.classList.remove('modal-open');
   }
 
   // Clear all selections and rebuild UI
@@ -659,6 +819,33 @@
   // Attach control handlers
   document.getElementById('copyLink').addEventListener('click', copyLinkToClipboard);
   document.getElementById('clearAll').addEventListener('click', clearAllSelections);
+  document.getElementById('generateLink').addEventListener('click', openLinkModal);
+  document.getElementById('modalCancel').addEventListener('click', closeLinkModal);
+  document.getElementById('modalClose').addEventListener('click', closeLinkModal);
+  document.getElementById('linkModal').addEventListener('click', (event) => {
+    if (event.target === event.currentTarget) closeLinkModal();
+  });
+  document.getElementById('modalAcknowledge').addEventListener('change', (event) => {
+    document.getElementById('modalConfirm').disabled = !event.target.checked;
+  });
+  document.getElementById('modalConfirm').addEventListener('click', () => {
+    const result = document.getElementById('modalResult');
+    if (result) result.classList.remove('hidden');
+    updateFeedUrl();
+    const input = document.getElementById('feedUrl');
+    if (input) {
+      input.focus();
+      input.select();
+    }
+  });
+  window.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      const modal = document.getElementById('linkModal');
+      if (modal && !modal.classList.contains('hidden')) {
+        closeLinkModal();
+      }
+    }
+  });
 
   // Initialise everything on page load.  First fetch the tag UI
   // definitions and the per‑type tag CSVs from the resources
