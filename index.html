@@ -109,6 +109,8 @@
       justify-content: center;
       align-items: flex-start;
       padding: 40px 20px;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
       z-index: 2000;
     }
     .modal-content {
@@ -119,6 +121,8 @@
       width: 100%;
       padding: 24px;
       position: relative;
+      max-height: calc(100vh - 80px);
+      overflow: auto;
     }
     .modal-content h2 {
       margin-top: 0;
@@ -240,6 +244,14 @@
       }
       .card .controls {
         padding-bottom: 60px;
+      }
+    }
+    @media (max-height: 620px) {
+      .modal-overlay {
+        padding: 20px 12px;
+      }
+      .modal-content {
+        max-height: calc(100vh - 40px);
       }
     }
   </style>
